@@ -128,14 +128,20 @@ ia_medica_asistencial_triage/
 ## ✨ Resumen de Funcionalidades
 
 ### Funcionalidades Implementadas y Operativas ✅
-- **Gestión Administrativa de Pacientes**: Admisión con código unificado, registro de llegada en formato ISO 8601 y control de estados administrativos (`en_espera`, `en_atencion`, `atendido`, `alta`).
+- **Gestión Clínica y Humanizada de Pacientes**: Admisión con nombre completo (ficticio), código unificado (`PAC-XXXXXX`), registro temporal exacto de llegada (ISO 8601), cálculo dinámico del tiempo de espera en vivo, registro estructurado de síntomas, diagnóstico inicial o sospecha clínica, y control de estados administrativos (`en_espera`, `en_atencion`, `atendido`, `alta`).
+- **Triaje Clínico Profesional (Niveles I a V)**: Clasificación de urgencia basada en estándares clínicos reconocidos (Resolución 5596 de 2015 del Ministerio de Salud / Sistema Manchester / ESI) con 5 niveles de gravedad (I: Reanimación, II: Emergencia, III: Urgencia, IV: Prioritario, V: No urgente).
+- **Separación de Tres Capas**:
+  1. *Triaje Clínico Inicial*: Clasificación de entrada realizada por personal asistencial.
+  2. *Deterioro Fisiológico Agudo (NEWS2)*: Monitoreo periódico y evolutivo de constantes vitales (0 a 20).
+  3. *Priorización Administrativa de Cola*: Sugerencia explicable del orden de atención combinando nivel de triaje, alertas activas, score NEWS2 y tiempo de espera acumulado.
 - **Captura Completa de Signos Vitales**: Frecuencia respiratoria, SpO2 (Escala 1 general y Escala 2 para insuficiencia respiratoria hipercápnica), soporte de oxígeno suplementario, tensión arterial sistólica, pulso cardíaco, conciencia en escala AVPU y temperatura corporal.
 - **Scoring Clínico NEWS2**: Puntuación individual por parámetro (0 a 3) y score acumulado total (0 a 20), categorizado en riesgo Bajo, Bajo-Medio (alerta 3 en un solo parámetro), Medio o Alto según especificación RCP 2017.
 - **Detección de Variaciones Críticas**: Notificación inmediata si hay variaciones de puntuación entre mediciones sucesivas (cambios hemodinámicos relevantes).
 - **Gestión Integral de Alertas**: Panel para acuse de recibo (`acknowledge`) por parte del personal, con trazabilidad de estado (`pendiente` / `reconocida`).
-- **Cola Dinámica Explicable**: Lista ordenada en tiempo real con desgloses cuantitativos de qué factores colocaron al paciente en su puesto actual.
-- **Simulador de Urgencias Estocástico**: Inyección controlada de pacientes virtuales para evaluar congestión y tiempos de espera teóricos.
+- **Cola Dinámica Explicable**: Lista ordenada en tiempo real con desgloses cuantitativos y transparentes de qué factores colocaron al paciente en su puesto actual (Triaje: +120/+90/+50/+20 pts, Alertas: +100 pts, NEWS2: +80/+60/+40/+20 pts, Espera: +1 pt/10 min).
+- **Simulador de Urgencias Estocástico**: Inyección controlada de perfiles sintéticos diferenciados (Estable, Deterioro leve, Crítico, Datos incompletos, Mejora gradual) con nombres ficticios, diagnósticos iniciales y síntomas realistas.
 - **Configuración de Reglas**: Activación y desactivación dinámica de reglas del motor de inferencia sin reiniciar el servidor.
+- **Migración Segura y No Destructiva**: Actualización automática del esquema SQLite mediante `PRAGMA table_info` y `ALTER TABLE ADD COLUMN` sin pérdida de registros preexistentes.
 
 ### Funcionalidades Pendientes / Roadmap Futuro ⏳
 - **Módulo Predictivo de Machine Learning**: Modelos avanzados para estimar tiempo de permanencia en sala o probabilidad de hospitalización en UCI (la dependencia `scikit-learn` se encuentra reservada en `requirements.txt` para este fin).

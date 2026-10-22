@@ -33,6 +33,8 @@ from config import (
     SIM_DEFAULT_PATIENTS,
     SIM_RANDOM_SEED,
     TEAM_NAME,
+    TRIAGE_LEVELS,
+    TRIAGE_LEVEL_LABELS,
 )
 from models import (
     Alert,
@@ -208,14 +210,24 @@ def render_patient_table(patients: List[Patient]) -> None:
             if p.last_evaluation_score is not None
             else 'Sin evaluar'
         )
+        triage_display = (
+            TRIAGE_LEVELS.get(p.triage_level, {}).get('short_label', f'Nivel {p.triage_level}')
+            if p.triage_level
+            else 'Sin clasificar'
+        )
+        patient_name = p.full_name or p.name or 'N/D'
+
         table_data.append({
             'Código': p.patient_code,
-            'Estado Administrativo': status_display,
+            'Nombre': patient_name,
+            'Triaje Clínico': triage_display,
+            'Estado': status_display,
             'Hora Llegada': format_datetime(p.arrival_at),
             'Tiempo Espera': format_wait_time(p.wait_time_minutes),
-            'Alertas Pendientes': alerts_display,
+            'Alertas': alerts_display,
             'Último NEWS2': score_display,
-            'Última Evaluación': format_datetime(p.last_evaluation_at),
+            'Síntomas': p.symptoms or 'No descritos',
+            'Diagnóstico Inicial': p.initial_diagnosis or 'Pendiente',
             'Tipo': 'Simulado' if p.is_simulated else 'Manual',
         })
 
@@ -224,7 +236,7 @@ def render_patient_table(patients: List[Patient]) -> None:
 
 
 def render_patient_card(patient: Patient) -> None:
-    """Muestra una tarjeta detallada con el resumen del estado de un paciente.
+    """Muestra una tarjeta detallada con el resumen clínico y administrativo de un paciente.
 
     Args:
         patient: Objeto Patient a detallar.
@@ -234,27 +246,50 @@ def render_patient_card(patient: Patient) -> None:
     )
     emoji = get_status_emoji(patient.administrative_status)
     sim_tag = ' *(Simulado)*' if patient.is_simulated else ' *(Manual)*'
+    patient_name = patient.full_name or patient.name or 'Paciente Ficticio'
 
-    st.markdown(f'### {emoji} Paciente `{patient.patient_code}`{sim_tag}')
+    triage_info = TRIAGE_LEVELS.get(patient.triage_level or 0, {})
+    triage_short = triage_info.get('short_label', f'Nivel {patient.triage_level}' if patient.triage_level else 'Sin Triaje')
+    triage_color = triage_info.get('color', '#6c757d')
 
-    col1, col2, col3, col4 = st.columns(4)
+    st.markdown(
+        f"### {emoji} **{patient_name}** (`{patient.patient_code}`){sim_tag} "
+        f"<span style='background-color:{triage_color}; color:white; padding:3px 10px; border-radius:12px; font-size:0.85em; margin-left:10px;'>{triage_short}</span>",
+        unsafe_allow_html=True,
+    )
+
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         st.metric('Estado Administrativo', status_label)
     with col2:
-        st.metric('Tiempo de Espera', format_wait_time(patient.wait_time_minutes))
+        st.metric('Triaje Clínico', triage_short)
     with col3:
+        st.metric('Tiempo de Espera', format_wait_time(patient.wait_time_minutes))
+    with col4:
         alerts_val = patient.pending_alerts_count or 0
         st.metric(
             'Alertas Activas',
             f'🚨 {alerts_val}' if alerts_val > 0 else '✅ 0',
         )
-    with col4:
+    with col5:
         score_val = (
             str(patient.last_evaluation_score)
             if patient.last_evaluation_score is not None
             else 'N/D'
         )
         st.metric('Puntaje NEWS2', score_val)
+
+    # Bloque de información clínica descriptiva
+    with st.container():
+        st.markdown(
+            f"""
+            <div style="background-color:rgba(28, 131, 225, 0.08); border-left: 4px solid #1c83e1; padding: 10px 14px; border-radius: 4px; margin: 8px 0;">
+                <p style="margin:0 0 6px 0;"><strong>🩺 Síntomas Reportados:</strong> {patient.symptoms or '<em>Sin síntomas descritos al ingreso</em>'}</p>
+                <p style="margin:0;"><strong>📋 Diagnóstico Inicial / Sospecha:</strong> {patient.initial_diagnosis or '<em>Pendiente de valoración clínica</em>'}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     st.caption(
         f'Hora de Ingreso: {format_datetime(patient.arrival_at)} | '
@@ -763,7 +798,14 @@ def render_queue_table(queue_data: List[Any]) -> None:
     normalized: List[Dict[str, Any]] = []
     for item in queue_data:
         if isinstance(item, QueueEntry):
-            code = item.patient.patient_code if item.patient else 'N/D'
+            p = item.patient
+            code = p.patient_code if p else 'N/D'
+            name = (p.full_name or p.name) if p else 'N/D'
+            tinfo = TRIAGE_LEVELS.get(p.triage_level, {}) if (p and p.triage_level) else {}
+            triage_label = tinfo.get('short_label', f"Nivel {p.triage_level}") if (p and p.triage_level) else 'N/D'
+            symptoms = p.symptoms if (p and p.symptoms) else 'Sin síntomas'
+            initial_dx = p.initial_diagnosis if (p and p.initial_diagnosis) else 'Pendiente'
+
             reasons_str = (
                 ', '.join(item.reasons)
                 if isinstance(item.reasons, list)
@@ -772,6 +814,10 @@ def render_queue_table(queue_data: List[Any]) -> None:
             normalized.append({
                 'position': item.position,
                 'patient_code': code,
+                'patient_name': name,
+                'triage_label': triage_label,
+                'symptoms': symptoms,
+                'initial_diagnosis': initial_dx,
                 'priority_score': round(item.priority_score, 2),
                 'wait_time_minutes': item.wait_time_minutes,
                 'wait_time_formatted': format_wait_time(item.wait_time_minutes),
@@ -779,10 +825,14 @@ def render_queue_table(queue_data: List[Any]) -> None:
                 'reasons_str': reasons_str,
             })
         elif isinstance(item, dict):
-            pos = item.get('position', item.get('posicion', 0))
-            code = item.get('patient_code', item.get('codigo', 'N/D'))
+            pos = item.get('position', item.get('posicion', item.get('Posición', 0)))
+            code = item.get('patient_code', item.get('codigo', item.get('Código', 'N/D')))
+            name = item.get('patient_name', item.get('nombre', item.get('Nombre', 'N/D')))
+            triage_label = item.get('triage_label', item.get('triaje', item.get('Triaje', 'N/D')))
+            symptoms = item.get('symptoms', item.get('sintomas', item.get('Síntomas', 'Sin síntomas')))
+            initial_dx = item.get('initial_diagnosis', item.get('diagnostico', item.get('Diagnóstico inicial', 'Pendiente')))
             score = round(
-                float(item.get('priority_score', item.get('score', 0.0))), 2
+                float(item.get('priority_score', item.get('score', item.get('Puntuación prioridad', 0.0)))), 2
             )
             wait_m = item.get(
                 'wait_time_minutes', item.get('tiempo_espera_minutos', None)
@@ -791,16 +841,20 @@ def render_queue_table(queue_data: List[Any]) -> None:
                 'wait_time_formatted',
                 format_wait_time(wait_m)
                 if wait_m is not None
-                else item.get('tiempo_espera', 'N/D'),
+                else item.get('tiempo_espera', item.get('Tiempo espera', 'N/D')),
             )
-            alerts = item.get('pending_alerts', item.get('alertas', 0))
-            r_val = item.get('reasons', item.get('reasons_str', item.get('razon', '')))
+            alerts = item.get('pending_alerts', item.get('alertas', item.get('Alertas pendientes', 0)))
+            r_val = item.get('reasons', item.get('reasons_str', item.get('razon', item.get('Razón del orden', ''))))
             reasons_str = (
                 ', '.join(r_val) if isinstance(r_val, list) else str(r_val)
             )
             normalized.append({
                 'position': pos,
                 'patient_code': code,
+                'patient_name': name,
+                'triage_label': triage_label,
+                'symptoms': symptoms,
+                'initial_diagnosis': initial_dx,
                 'priority_score': score,
                 'wait_time_minutes': wait_m,
                 'wait_time_formatted': wait_str,
@@ -812,7 +866,8 @@ def render_queue_table(queue_data: List[Any]) -> None:
     if normalized:
         top_patient = normalized[0]
         st.warning(
-            f"🔔 **Próximo Paciente a Llamar:** `{top_patient['patient_code']}` | "
+            f"🔔 **Próximo Paciente a Llamar:** `{top_patient['patient_code']}` ({top_patient['patient_name']}) | "
+            f"Triaje: **{top_patient['triage_label']}** | "
             f"Prioridad: **{top_patient['priority_score']}** | "
             f"Factores: {top_patient['reasons_str'] or 'Tiempo estándar'}",
             icon='🚨',
@@ -823,13 +878,17 @@ def render_queue_table(queue_data: List[Any]) -> None:
         table_rows.append({
             'Posición': f"#{entry['position']}",
             'Código': entry['patient_code'],
+            'Nombre': entry['patient_name'],
+            'Triaje': entry['triage_label'],
             'Puntaje Prioridad': entry['priority_score'],
-            'Tiempo de Espera': entry['wait_time_formatted'],
+            'Tiempo Espera': entry['wait_time_formatted'],
             'Alertas': (
                 f"🚨 {entry['pending_alerts']}"
                 if entry['pending_alerts'] > 0
                 else '0'
             ),
+            'Síntomas': entry['symptoms'],
+            'Diagnóstico': entry['initial_diagnosis'],
             'Factores de Priorización': entry['reasons_str'],
         })
 

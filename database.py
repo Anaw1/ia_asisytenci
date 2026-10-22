@@ -60,14 +60,31 @@ def init_db(db_path: Optional[str] = None) -> None:
             CREATE TABLE IF NOT EXISTS patients (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 patient_code TEXT NOT NULL UNIQUE,
+                full_name TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL,
                 arrival_at TEXT NOT NULL,
                 administrative_status TEXT NOT NULL DEFAULT 'en_espera',
-                is_simulated INTEGER NOT NULL DEFAULT 0
+                is_simulated INTEGER NOT NULL DEFAULT 0,
+                symptoms TEXT NOT NULL DEFAULT '',
+                initial_diagnosis TEXT NOT NULL DEFAULT '',
+                triage_level INTEGER DEFAULT NULL
             );
             """)
+            # Migración segura: agregar nuevas columnas a tablas de pacientes existentes sin pérdida de datos.
+            cursor.execute("PRAGMA table_info(patients);")
+            patient_cols = [row[1] for row in cursor.fetchall()]
+            if "full_name" not in patient_cols:
+                cursor.execute("ALTER TABLE patients ADD COLUMN full_name TEXT NOT NULL DEFAULT '';")
+            if "symptoms" not in patient_cols:
+                cursor.execute("ALTER TABLE patients ADD COLUMN symptoms TEXT NOT NULL DEFAULT '';")
+            if "initial_diagnosis" not in patient_cols:
+                cursor.execute("ALTER TABLE patients ADD COLUMN initial_diagnosis TEXT NOT NULL DEFAULT '';")
+            if "triage_level" not in patient_cols:
+                cursor.execute("ALTER TABLE patients ADD COLUMN triage_level INTEGER DEFAULT NULL;")
+
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_patients_status ON patients(administrative_status);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_patients_simulated ON patients(is_simulated);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_patients_triage ON patients(triage_level);")
 
             # Tabla measurements
             cursor.execute("""
@@ -167,13 +184,19 @@ def init_db(db_path: Optional[str] = None) -> None:
 
 def _row_to_patient(row: sqlite3.Row) -> Patient:
     """Convierte un registro de SQLite a objeto Patient."""
+    keys = row.keys()
+    triage_raw = row['triage_level'] if 'triage_level' in keys else None
     return Patient(
         id=row['id'],
         patient_code=row['patient_code'],
+        full_name=row['full_name'] if 'full_name' in keys and row['full_name'] is not None else '',
         created_at=row['created_at'],
         arrival_at=row['arrival_at'],
         administrative_status=row['administrative_status'],
         is_simulated=bool(row['is_simulated']),
+        symptoms=row['symptoms'] if 'symptoms' in keys and row['symptoms'] is not None else '',
+        initial_diagnosis=row['initial_diagnosis'] if 'initial_diagnosis' in keys and row['initial_diagnosis'] is not None else '',
+        triage_level=int(triage_raw) if triage_raw is not None else None,
     )
 
 
@@ -252,15 +275,22 @@ def insert_patient(conn: sqlite3.Connection, patient: Patient) -> int:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                INSERT INTO patients (patient_code, created_at, arrival_at, administrative_status, is_simulated)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO patients (
+                    patient_code, full_name, created_at, arrival_at, 
+                    administrative_status, is_simulated, symptoms, initial_diagnosis, triage_level
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     patient.patient_code,
+                    patient.full_name or '',
                     patient.created_at or datetime.now().isoformat(),
                     patient.arrival_at or datetime.now().isoformat(),
                     patient.administrative_status or 'en_espera',
                     1 if patient.is_simulated else 0,
+                    patient.symptoms or '',
+                    patient.initial_diagnosis or '',
+                    patient.triage_level,
                 ),
             )
             patient.id = cursor.lastrowid

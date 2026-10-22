@@ -15,6 +15,7 @@ from config import (
     CONSCIOUSNESS_LEVELS,
     DATE_FORMAT,
     MEASUREMENT_SOURCES,
+    TRIAGE_LEVELS,
 )
 
 
@@ -130,6 +131,268 @@ def validate_patient_code(code: str) -> ValidationResult:
         errors=[],
         warnings=[],
         cleaned_data={'patient_code': sanitized},
+    )
+
+
+def validate_patient_name(name: Any, required: bool = True) -> ValidationResult:
+    """Valida el nombre (ficticio) del paciente para humanizar la atención.
+
+    Debe ser una cadena de texto, tener entre 2 y 100 caracteres y contener
+    únicamente caracteres alfabéticos, espacios, tildes, diéresis y guiones.
+    """
+    if name is None:
+        if required:
+            return ValidationResult(
+                is_valid=False,
+                errors=['El nombre del paciente es obligatorio.'],
+                warnings=[],
+                cleaned_data={},
+            )
+        return ValidationResult(is_valid=True, errors=[], warnings=[], cleaned_data={'full_name': ''})
+
+    if not isinstance(name, str):
+        return ValidationResult(
+            is_valid=False,
+            errors=['El nombre del paciente debe ser una cadena de texto válida.'],
+            warnings=[],
+            cleaned_data={},
+        )
+
+    sanitized = sanitize_string(name)
+    if not sanitized:
+        if required:
+            return ValidationResult(
+                is_valid=False,
+                errors=['El nombre del paciente no puede estar vacío.'],
+                warnings=[],
+                cleaned_data={},
+            )
+        return ValidationResult(is_valid=True, errors=[], warnings=[], cleaned_data={'full_name': ''})
+
+    if len(sanitized) < 2 or len(sanitized) > 100:
+        return ValidationResult(
+            is_valid=False,
+            errors=[f'El nombre del paciente debe tener entre 2 y 100 caracteres (longitud: {len(sanitized)}).'],
+            warnings=[],
+            cleaned_data={},
+        )
+
+    # Permitir letras castellanas, espacios, puntos, guiones y paréntesis para sufijos como (Ficticio)
+    if not re.match(r'^[A-Za-zÁÉÍÓÚáéíóúñÑüÜ\s\-\.\(\)]+$', sanitized):
+        return ValidationResult(
+            is_valid=False,
+            errors=['El nombre del paciente contiene caracteres no permitidos (solo letras, espacios, guiones o puntos).'],
+            warnings=[],
+            cleaned_data={},
+        )
+
+    return ValidationResult(
+        is_valid=True,
+        errors=[],
+        warnings=[],
+        cleaned_data={'full_name': sanitized},
+    )
+
+
+def validate_symptoms(symptoms: Any, required: bool = False) -> ValidationResult:
+    """Valida la descripción de síntomas reportados por el paciente o su acompañante."""
+    if symptoms is None:
+        if required:
+            return ValidationResult(
+                is_valid=False,
+                errors=['Los síntomas del paciente son obligatorios en este registro.'],
+                warnings=[],
+                cleaned_data={},
+            )
+        return ValidationResult(is_valid=True, errors=[], warnings=[], cleaned_data={'symptoms': ''})
+
+    if not isinstance(symptoms, str):
+        return ValidationResult(
+            is_valid=False,
+            errors=['La descripción de síntomas debe ser una cadena de texto.'],
+            warnings=[],
+            cleaned_data={},
+        )
+
+    sanitized = sanitize_string(symptoms)
+    if not sanitized:
+        if required:
+            return ValidationResult(
+                is_valid=False,
+                errors=['La descripción de síntomas no puede estar vacía.'],
+                warnings=[],
+                cleaned_data={},
+            )
+        return ValidationResult(is_valid=True, errors=[], warnings=[], cleaned_data={'symptoms': ''})
+
+    if len(sanitized) > 500:
+        return ValidationResult(
+            is_valid=False,
+            errors=[f'La descripción de síntomas no puede superar 500 caracteres (longitud: {len(sanitized)}).'],
+            warnings=[],
+            cleaned_data={},
+        )
+
+    warnings: List[str] = []
+    if len(sanitized) < 4:
+        warnings.append('La descripción de síntomas es sumamente breve; se recomienda detallar el motivo de consulta.')
+
+    return ValidationResult(
+        is_valid=True,
+        errors=[],
+        warnings=warnings,
+        cleaned_data={'symptoms': sanitized},
+    )
+
+
+def validate_initial_diagnosis(diagnosis: Any, required: bool = False) -> ValidationResult:
+    """Valida la sospecha diagnóstica o impresión clínica preliminar."""
+    if diagnosis is None:
+        if required:
+            return ValidationResult(
+                is_valid=False,
+                errors=['El diagnóstico inicial o sospecha diagnóstica es obligatorio.'],
+                warnings=[],
+                cleaned_data={},
+            )
+        return ValidationResult(is_valid=True, errors=[], warnings=[], cleaned_data={'initial_diagnosis': ''})
+
+    if not isinstance(diagnosis, str):
+        return ValidationResult(
+            is_valid=False,
+            errors=['El diagnóstico inicial debe ser una cadena de texto.'],
+            warnings=[],
+            cleaned_data={},
+        )
+
+    sanitized = sanitize_string(diagnosis)
+    if not sanitized:
+        if required:
+            return ValidationResult(
+                is_valid=False,
+                errors=['El diagnóstico inicial no puede estar vacío.'],
+                warnings=[],
+                cleaned_data={},
+            )
+        return ValidationResult(is_valid=True, errors=[], warnings=[], cleaned_data={'initial_diagnosis': ''})
+
+    if len(sanitized) > 300:
+        return ValidationResult(
+            is_valid=False,
+            errors=[f'El diagnóstico inicial no puede exceder los 300 caracteres (longitud: {len(sanitized)}).'],
+            warnings=[],
+            cleaned_data={},
+        )
+
+    return ValidationResult(
+        is_valid=True,
+        errors=[],
+        warnings=[],
+        cleaned_data={'initial_diagnosis': sanitized},
+    )
+
+
+def validate_triage_level(level: Any, required: bool = False) -> ValidationResult:
+    """Valida el puntaje o nivel de triaje clínico profesional (Niveles I a V).
+
+    Debe ser un número entero comprendido entre 1 y 5, o None si no se suministra.
+    """
+    if level is None or str(level).strip().lower() in ('none', '', 'null'):
+        if required:
+            return ValidationResult(
+                is_valid=False,
+                errors=['El puntaje o nivel de triaje profesional es obligatorio (Nivel 1 a 5).'],
+                warnings=[],
+                cleaned_data={},
+            )
+        return ValidationResult(is_valid=True, errors=[], warnings=[], cleaned_data={'triage_level': None})
+
+    if not _is_valid_int(level):
+        return ValidationResult(
+            is_valid=False,
+            errors=[f'El nivel de triaje debe ser un número entero entre 1 y 5 (recibido: {level}).'],
+            warnings=[],
+            cleaned_data={},
+        )
+
+    int_level = int(level)
+    if int_level not in (1, 2, 3, 4, 5):
+        return ValidationResult(
+            is_valid=False,
+            errors=[f'Nivel de triaje clínico no reconocido: {int_level}. Solo se admiten niveles de 1 a 5 (I a V).'],
+            warnings=[],
+            cleaned_data={},
+        )
+
+    return ValidationResult(
+        is_valid=True,
+        errors=[],
+        warnings=[],
+        cleaned_data={'triage_level': int_level},
+    )
+
+
+def validate_patient_admission(data: Dict[str, Any], require_clinical: bool = False) -> ValidationResult:
+    """Valida de forma integral el formulario de admisión de un paciente.
+
+    Evalúa: código, nombre, fecha de llegada, síntomas, diagnóstico inicial y nivel de triaje.
+    """
+    errors: List[str] = []
+    warnings: List[str] = []
+    cleaned: Dict[str, Any] = {}
+
+    # Código (opcional en data si se auto-genera)
+    if 'patient_code' in data and data['patient_code']:
+        v_code = validate_patient_code(data['patient_code'])
+        if not v_code.is_valid:
+            errors.extend(v_code.errors)
+        else:
+            cleaned.update(v_code.cleaned_data)
+
+    # Nombre
+    v_name = validate_patient_name(data.get('full_name', data.get('name')), required=require_clinical)
+    if not v_name.is_valid:
+        errors.extend(v_name.errors)
+    else:
+        cleaned.update(v_name.cleaned_data)
+        warnings.extend(v_name.warnings)
+
+    # Llegada
+    if 'arrival_at' in data and data['arrival_at']:
+        v_arr = validate_arrival_datetime(data['arrival_at'])
+        if not v_arr.is_valid:
+            errors.extend(v_arr.errors)
+        else:
+            cleaned.update(v_arr.cleaned_data)
+
+    # Síntomas
+    v_sym = validate_symptoms(data.get('symptoms'), required=require_clinical)
+    if not v_sym.is_valid:
+        errors.extend(v_sym.errors)
+    else:
+        cleaned.update(v_sym.cleaned_data)
+        warnings.extend(v_sym.warnings)
+
+    # Diagnóstico inicial
+    v_dx = validate_initial_diagnosis(data.get('initial_diagnosis'), required=require_clinical)
+    if not v_dx.is_valid:
+        errors.extend(v_dx.errors)
+    else:
+        cleaned.update(v_dx.cleaned_data)
+        warnings.extend(v_dx.warnings)
+
+    # Nivel de triaje
+    v_tr = validate_triage_level(data.get('triage_level', data.get('triage_score')), required=require_clinical)
+    if not v_tr.is_valid:
+        errors.extend(v_tr.errors)
+    else:
+        cleaned.update(v_tr.cleaned_data)
+
+    return ValidationResult(
+        is_valid=(len(errors) == 0),
+        errors=errors,
+        warnings=warnings,
+        cleaned_data=cleaned,
     )
 
 

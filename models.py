@@ -16,15 +16,38 @@ class Patient:
 
     id: Optional[int] = None
     patient_code: str = ''
+    full_name: str = ''  # Nombre (ficticio) para humanizar la interfaz asistencial
     created_at: str = ''  # Formato ISO 8601
     arrival_at: str = ''  # Formato ISO 8601
     administrative_status: str = 'en_espera'
     is_simulated: bool = False
+    symptoms: str = ''  # Síntomas principales reportados al ingreso
+    initial_diagnosis: str = ''  # Impresión clínica o sospecha diagnóstica preliminar
+    triage_level: Optional[int] = None  # Puntaje/Nivel de triaje clínico profesional (1 a 5)
+
     # Campos computados (no persistidos en la tabla patients)
     wait_time_minutes: Optional[float] = None
     pending_alerts_count: int = 0
     last_evaluation_score: Optional[int] = None
     last_evaluation_at: Optional[str] = None
+
+    @property
+    def triage_score(self) -> Optional[int]:
+        """Alias para puntaje/nivel de triaje clínico profesional."""
+        return self.triage_level
+
+    @triage_score.setter
+    def triage_score(self, value: Optional[int]) -> None:
+        self.triage_level = value
+
+    @property
+    def name(self) -> str:
+        """Alias para el nombre del paciente."""
+        return self.full_name
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self.full_name = value
 
 
 @dataclass

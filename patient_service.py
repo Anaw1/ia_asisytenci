@@ -26,13 +26,17 @@ from database import (
 )
 from validation import (
     validate_patient_code,
+    validate_patient_name,
     validate_arrival_datetime,
     validate_measurement,
+    validate_symptoms,
+    validate_initial_diagnosis,
+    validate_triage_level,
     sanitize_string,
     validate_administrative_status,
     ValidationResult,
 )
-from config import DATE_FORMAT, ADMIN_STATUSES, ALERT_STATUS_PENDING
+from config import DATE_FORMAT, ADMIN_STATUSES, ALERT_STATUS_PENDING, TRIAGE_LEVELS
 
 
 def generate_patient_code() -> str:
@@ -110,24 +114,41 @@ def enrich_patient(patient: Patient, db_path: Optional[str] = None) -> Patient:
 
 def register_patient(
     patient_code: Optional[str] = None,
+    full_name: Optional[str] = None,
     arrival_at: Optional[str] = None,
+    symptoms: Optional[str] = None,
+    initial_diagnosis: Optional[str] = None,
+    triage_level: Optional[int] = None,
     is_simulated: bool = False,
     db_path: Optional[str] = None,
+    **kwargs: Any,
 ) -> Dict[str, Any]:
-    """Registra un nuevo paciente ficticio en el sistema.
+    """Registra un nuevo paciente ficticio en el sistema con información clínica y de triaje.
 
     Args:
         patient_code: Código del paciente. Si es None o vacío, se auto-genera.
+        full_name: Nombre ficticio del paciente para humanizar la atención.
         arrival_at: Fecha y hora de llegada (ISO 8601). Si es None, se usa el momento actual.
+        symptoms: Descripción textual o selección de síntomas principales reportados.
+        initial_diagnosis: Sospecha diagnóstica o impresión clínica preliminar.
+        triage_level: Puntaje/Nivel de triaje clínico profesional (1 a 5 / I a V).
         is_simulated: Indica si el paciente proviene de la simulación o de ingreso manual.
         db_path: Ruta opcional a la base de datos SQLite.
+        **kwargs: Admite alias 'name' y 'triage_score'.
 
     Returns:
-        Dict[str, Any]: Diccionario con las claves 'success', 'patient_id', 'patient_code', 'errors'.
+        Dict[str, Any]: Diccionario con las claves 'success', 'patient_id', 'patient_code',
+                        'full_name', 'triage_level', 'errors'.
     """
     errors: List[str] = []
 
-    # Validar o generar código
+    # Compatibilidad con alias
+    if full_name is None and "name" in kwargs:
+        full_name = kwargs["name"]
+    if triage_level is None and "triage_score" in kwargs:
+        triage_level = kwargs["triage_score"]
+
+    # 1. Validar o generar código
     if patient_code is not None and str(patient_code).strip():
         code_to_use = sanitize_string(str(patient_code).strip())
         val_code = validate_patient_code(code_to_use)
@@ -136,7 +157,16 @@ def register_patient(
     else:
         code_to_use = generate_patient_code()
 
-    # Validar o asignar fecha de llegada
+    # 2. Validar o asignar nombre
+    if full_name is not None and str(full_name).strip():
+        name_val = validate_patient_name(str(full_name).strip(), required=False)
+        if not name_val.is_valid:
+            errors.extend(name_val.errors)
+        name_to_use = name_val.cleaned_data.get("full_name", str(full_name).strip())
+    else:
+        name_to_use = f"Paciente {code_to_use}"
+
+    # 3. Validar o asignar fecha de llegada
     if arrival_at is not None and str(arrival_at).strip():
         arrival_to_use = sanitize_string(str(arrival_at).strip())
         val_arrival = validate_arrival_datetime(arrival_to_use)
@@ -145,11 +175,37 @@ def register_patient(
     else:
         arrival_to_use = datetime.now().isoformat()
 
+    # 4. Validar síntomas si se proporcionan
+    symptoms_to_use = ""
+    if symptoms is not None and str(symptoms).strip():
+        val_sym = validate_symptoms(str(symptoms).strip(), required=False)
+        if not val_sym.is_valid:
+            errors.extend(val_sym.errors)
+        symptoms_to_use = val_sym.cleaned_data.get("symptoms", str(symptoms).strip())
+
+    # 5. Validar diagnóstico inicial si se proporciona
+    diagnosis_to_use = ""
+    if initial_diagnosis is not None and str(initial_diagnosis).strip():
+        val_dx = validate_initial_diagnosis(str(initial_diagnosis).strip(), required=False)
+        if not val_dx.is_valid:
+            errors.extend(val_dx.errors)
+        diagnosis_to_use = val_dx.cleaned_data.get("initial_diagnosis", str(initial_diagnosis).strip())
+
+    # 6. Validar nivel de triaje profesional si se proporciona
+    triage_to_use: Optional[int] = None
+    if triage_level is not None and str(triage_level).strip() != "":
+        val_tr = validate_triage_level(triage_level, required=False)
+        if not val_tr.is_valid:
+            errors.extend(val_tr.errors)
+        triage_to_use = val_tr.cleaned_data.get("triage_level")
+
     if errors:
         return {
             "success": False,
             "patient_id": None,
             "patient_code": code_to_use,
+            "full_name": name_to_use,
+            "triage_level": triage_to_use,
             "errors": errors,
         }
 
@@ -162,6 +218,8 @@ def register_patient(
                 "success": False,
                 "patient_id": None,
                 "patient_code": code_to_use,
+                "full_name": name_to_use,
+                "triage_level": triage_to_use,
                 "errors": [f"El código de paciente '{code_to_use}' ya se encuentra registrado."],
             }
 
@@ -169,10 +227,14 @@ def register_patient(
         patient = Patient(
             id=None,
             patient_code=code_to_use,
+            full_name=name_to_use,
             created_at=now_iso,
             arrival_at=arrival_to_use,
             administrative_status="en_espera",
             is_simulated=is_simulated,
+            symptoms=symptoms_to_use,
+            initial_diagnosis=diagnosis_to_use,
+            triage_level=triage_to_use,
             wait_time_minutes=0.0,
             pending_alerts_count=0,
             last_evaluation_score=None,
@@ -184,6 +246,8 @@ def register_patient(
             "success": True,
             "patient_id": patient_id,
             "patient_code": code_to_use,
+            "full_name": name_to_use,
+            "triage_level": triage_to_use,
             "errors": [],
         }
     except Exception:
@@ -191,6 +255,8 @@ def register_patient(
             "success": False,
             "patient_id": None,
             "patient_code": code_to_use,
+            "full_name": name_to_use,
+            "triage_level": triage_to_use,
             "errors": ["Ocurrió un error interno al registrar el paciente."],
         }
     finally:

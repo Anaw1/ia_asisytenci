@@ -170,7 +170,7 @@ def page_patient_panel() -> None:
 
     # Mapeo de pacientes para selección detallada
     patient_options = {
-        p.id: f"{p.patient_code} (ID: {p.id}) - {config.ADMIN_STATUS_LABELS.get(p.administrative_status, p.administrative_status)}"
+        p.id: f"{p.patient_code} - {p.full_name or p.name} (Triaje: {config.TRIAGE_LEVEL_LABELS.get(p.triage_level, 'N/D')}) - {config.ADMIN_STATUS_LABELS.get(p.administrative_status, p.administrative_status)}"
         for p in patients
     }
 
@@ -270,22 +270,62 @@ def page_register_patient() -> None:
         pass
 
     with st.form("form_register_patient", clear_on_submit=False):
-        auto_code = st.checkbox("Generar código de paciente automáticamente", value=True)
-
-        if auto_code:
-            suggested_code = patient_service.generate_patient_code()
-            patient_code_input = st.text_input(
-                "Código de paciente (autogenerado):",
-                value=suggested_code,
-                disabled=True,
-                help="Código único generado automáticamente siguiendo el estándar PAC-XXXXXX.",
+        col_name, col_triage = st.columns([3, 2])
+        with col_name:
+            full_name_input = st.text_input(
+                "Nombre completo del paciente (ficticio):",
+                placeholder="Ej. Carlos Gómez (Ficticio)",
+                help="Nombre del paciente para humanizar la atención asistencial.",
             )
-            final_code = suggested_code
-        else:
-            final_code = st.text_input(
-                "Código de paciente personalizado:",
-                placeholder="Ej. PAC-001234",
-                help="Ingrese un código único que cumpla con el formato institucional PAC-XXXXXX.",
+        with col_triage:
+            triage_level_input = st.selectbox(
+                "Nivel de Triaje Profesional Inicial:",
+                options=[1, 2, 3, 4, 5],
+                format_func=lambda x: config.TRIAGE_LEVELS[x]['short_label'],
+                index=2,  # Nivel III predeterminado
+                help="Clasificación clínica profesional de admisión (I: Reanimación a V: No urgente).",
+            )
+
+        col_code1, col_code2 = st.columns([1, 2])
+        with col_code1:
+            auto_code = st.checkbox("Generar código automáticamente", value=True)
+        with col_code2:
+            if auto_code:
+                suggested_code = patient_service.generate_patient_code()
+                st.text_input(
+                    "Código de paciente (autogenerado):",
+                    value=suggested_code,
+                    disabled=True,
+                    help="Código único generado automáticamente siguiendo el estándar PAC-XXXXXX.",
+                )
+                final_code = suggested_code
+            else:
+                final_code = st.text_input(
+                    "Código de paciente personalizado:",
+                    placeholder="Ej. PAC-001234",
+                    help="Ingrese un código único que cumpla con el formato institucional PAC-XXXXXX.",
+                )
+
+        col_symptom1, col_symptom2 = st.columns(2)
+        with col_symptom1:
+            symptom_suggestion = st.selectbox(
+                "Motivo de consulta / Síntoma frecuente sugerido:",
+                options=["-- Escribir síntoma personalizado o manual --"] + config.COMMON_SYMPTOMS,
+            )
+            symptoms_input = st.text_area(
+                "Descripción detallada de síntomas reportados:",
+                value="" if symptom_suggestion.startswith("--") else symptom_suggestion,
+                placeholder="Describa el motivo de consulta, tiempo de evolución y síntomas principales...",
+                help="Descripción clínica o textual de los síntomas reportados al ingreso.",
+                height=100,
+            )
+
+        with col_symptom2:
+            initial_diagnosis_input = st.text_area(
+                "Diagnóstico inicial / Impresión diagnóstica:",
+                placeholder="Ej. Sospecha de síndrome coronario agudo / Descarte de neumonía...",
+                help="Sospecha diagnóstica inicial del personal asistencial al ingreso.",
+                height=100,
             )
 
         col_date, col_time = st.columns(2)
@@ -300,18 +340,28 @@ def page_register_patient() -> None:
             help="Indica si el paciente corresponde a una prueba sintética.",
         )
 
-        submitted = st.form_submit_button("Registrar Paciente", type="primary")
+        submitted = st.form_submit_button("Registrar Paciente en Admisión", type="primary")
 
     if submitted:
         clean_code = final_code.strip() if final_code else None
+        clean_name = full_name_input.strip() if full_name_input else None
+        clean_symptoms = symptoms_input.strip() if symptoms_input else ""
+        clean_dx = initial_diagnosis_input.strip() if initial_diagnosis_input else ""
         arrival_datetime_str = datetime.combine(arr_date, arr_time).isoformat()
 
-        # Validación previa opcional con validation.py
+        # Validación previa con validation.py
         if clean_code:
             code_val = validation.validate_patient_code(clean_code)
             if not code_val.is_valid:
                 for err in code_val.errors:
                     st.error(f"Error en código de paciente: {err}")
+                return
+
+        if clean_name:
+            name_val = validation.validate_patient_name(clean_name, required=False)
+            if not name_val.is_valid:
+                for err in name_val.errors:
+                    st.error(f"Error en nombre: {err}")
                 return
 
         arr_val = validation.validate_arrival_datetime(arrival_datetime_str)
@@ -324,15 +374,21 @@ def page_register_patient() -> None:
             try:
                 reg_res = patient_service.register_patient(
                     patient_code=clean_code,
+                    full_name=clean_name,
                     arrival_at=arrival_datetime_str,
+                    symptoms=clean_symptoms,
+                    initial_diagnosis=clean_dx,
+                    triage_level=triage_level_input,
                     is_simulated=is_simulated,
                 )
                 if reg_res.get("success", False) or "patient_id" in reg_res:
                     assigned_code = reg_res.get("patient_code", clean_code)
+                    assigned_name = reg_res.get("full_name", clean_name or "Paciente Ficticio")
                     patient_id = reg_res.get("patient_id", "")
+                    triage_lbl = config.TRIAGE_LEVEL_LABELS.get(triage_level_input, f"Nivel {triage_level_input}")
                     st.success(
                         f"¡Paciente registrado exitosamente! "
-                        f"Código: **{assigned_code}** (ID Interno: {patient_id})."
+                        f"**{assigned_name}** | Código: **{assigned_code}** | Triaje: **{triage_lbl}** (ID: {patient_id})."
                     )
                     st.session_state["selected_patient_id"] = patient_id
                 else:
@@ -369,7 +425,7 @@ def page_register_measurement() -> None:
         return
 
     patient_choices = {
-        p.id: f"{p.patient_code} - Estado: {config.ADMIN_STATUS_LABELS.get(p.administrative_status, p.administrative_status)}"
+        p.id: f"{p.patient_code} - {p.full_name or p.name} (Triaje: {config.TRIAGE_LEVEL_LABELS.get(p.triage_level, 'N/D')}) - {config.ADMIN_STATUS_LABELS.get(p.administrative_status, p.administrative_status)}"
         for p in eligible_patients
     }
 
@@ -486,7 +542,7 @@ def page_evaluation_and_alerts() -> None:
         return
 
     patient_map = {
-        p.id: f"{p.patient_code} - {config.ADMIN_STATUS_LABELS.get(p.administrative_status, p.administrative_status)}"
+        p.id: f"{p.patient_code} - {p.full_name or p.name} (Triaje: {config.TRIAGE_LEVEL_LABELS.get(p.triage_level, 'N/D')}) - {config.ADMIN_STATUS_LABELS.get(p.administrative_status, p.administrative_status)}"
         for p in patients
     }
 

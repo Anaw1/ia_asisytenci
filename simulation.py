@@ -51,7 +51,11 @@ from validation import validate_simulation_config
 SYNTHETIC_PROFILES: List[Dict[str, Any]] = [
     {
         'name': 'Estable',
+        'patient_name': 'Carlos Gómez (Ficticio)',
         'description': 'Paciente con signos vitales normales y estables',
+        'symptoms': 'Dolor lumbar mecánico de 2 días de evolución, afebril, sin signos de alarma',
+        'initial_diagnosis': 'Lumbalgia aguda mecánica no complicada',
+        'triage_level': 4,
         'base_vitals': {
             'respiratory_rate': 16,
             'oxygen_saturation': 97,
@@ -71,7 +75,11 @@ SYNTHETIC_PROFILES: List[Dict[str, Any]] = [
     },
     {
         'name': 'Deterioro leve',
+        'patient_name': 'María Fernanda Torres (Ficticio)',
         'description': 'Paciente con tendencia al deterioro gradual',
+        'symptoms': 'Tos persistente con expectoración, disnea de medianos esfuerzos y febrícula',
+        'initial_diagnosis': 'Infección respiratoria aguda baja / Sospecha de neumonía adquirida en comunidad',
+        'triage_level': 3,
         'base_vitals': {
             'respiratory_rate': 20,
             'oxygen_saturation': 94,
@@ -97,7 +105,11 @@ SYNTHETIC_PROFILES: List[Dict[str, Any]] = [
     },
     {
         'name': 'Crítico',
+        'patient_name': 'Jorge Eliécer Silva (Ficticio)',
         'description': 'Paciente con signos vitales preocupantes',
+        'symptoms': 'Dolor torácico opresivo retroesternal con diaforesis profusa y disnea severa',
+        'initial_diagnosis': 'Síndrome coronario agudo / Sospecha de choque cardiogénico inminente',
+        'triage_level': 1,
         'base_vitals': {
             'respiratory_rate': 26,
             'oxygen_saturation': 90,
@@ -117,7 +129,11 @@ SYNTHETIC_PROFILES: List[Dict[str, Any]] = [
     },
     {
         'name': 'Datos incompletos',
+        'patient_name': 'Ana Sofía Morales (Ficticio)',
         'description': 'Paciente con mediciones parciales (faltan datos)',
+        'symptoms': 'Cefalea holocraneana pulsátil intensa acompañada de náuseas y fotofobia',
+        'initial_diagnosis': 'Cefalea aguda en estudio / Pendiente completar constantes fisiológicas',
+        'triage_level': 3,
         'base_vitals': {
             'respiratory_rate': 18,
             'oxygen_saturation': None,
@@ -135,7 +151,11 @@ SYNTHETIC_PROFILES: List[Dict[str, Any]] = [
     },
     {
         'name': 'Mejora gradual',
+        'patient_name': 'Luis Alberto Mendoza (Ficticio)',
         'description': 'Paciente que mejora con el tiempo',
+        'symptoms': 'Crisis asmática con dificultad ventilatoria, en respuesta a broncodilatadores',
+        'initial_diagnosis': 'Crisis asmática aguda moderada en resolución clínica',
+        'triage_level': 2,
         'base_vitals': {
             'respiratory_rate': 22,
             'oxygen_saturation': 93,
@@ -303,7 +323,13 @@ def run_simulation(
             arrival_iso = arrival_dt.isoformat()
 
             reg_result = register_patient(
-                arrival_at=arrival_iso, is_simulated=True, db_path=db_path
+                full_name=profile.get('patient_name'),
+                arrival_at=arrival_iso,
+                symptoms=profile.get('symptoms'),
+                initial_diagnosis=profile.get('initial_diagnosis'),
+                triage_level=profile.get('triage_level'),
+                is_simulated=True,
+                db_path=db_path,
             )
 
             if not reg_result.get('success'):

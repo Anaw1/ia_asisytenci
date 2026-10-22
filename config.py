@@ -106,6 +106,11 @@ ALERT_TYPES: Dict[str, Dict[str, Any]] = {
 # ==============================================================================
 PRIORITY_RULES: List[Dict[str, Any]] = [
     {
+        'name': 'triage_clinical_level',
+        'description': 'Pondera la clasificación inicial de triaje clínico profesional asignada en la admisión (Niveles I a V).',
+        'weight': 120,
+    },
+    {
         'name': 'pending_alerts',
         'description': 'Prioriza pacientes que poseen alertas activas pendientes de reconocimiento.',
         'weight': 100,
@@ -125,6 +130,77 @@ PRIORITY_RULES: List[Dict[str, Any]] = [
         'description': 'Prioriza pacientes con registros incompletos que requieren completar signos vitales.',
         'weight': 40,
     },
+]
+
+# ==============================================================================
+# CLASIFICACIÓN DE TRIAJE PROFESIONAL (ESTÁNDAR COLOMBIANO / INTERNACIONAL I-V)
+# ==============================================================================
+TRIAGE_LEVELS: Dict[int, Dict[str, Any]] = {
+    1: {
+        'roman': 'I',
+        'label': 'Nivel I - Reanimación (Riesgo vital inminente)',
+        'short_label': 'Nivel I (Reanimación)',
+        'description': 'Atención médica inmediata. Requiere reanimación y soporte vital avanzado sin demora.',
+        'color': '#dc3545',  # Rojo
+        'max_wait_minutes': 0,
+        'priority_weight': 120.0,
+    },
+    2: {
+        'roman': 'II',
+        'label': 'Nivel II - Emergencia (Alto riesgo / Potencial inestabilidad)',
+        'short_label': 'Nivel II (Emergencia)',
+        'description': 'Situación de alto riesgo o potencial deterioro rápido. Tiempo objetivo de atención: ≤ 30 minutos.',
+        'color': '#fd7e14',  # Naranja
+        'max_wait_minutes': 30,
+        'priority_weight': 90.0,
+    },
+    3: {
+        'roman': 'III',
+        'label': 'Nivel III - Urgencia (Condición aguda estable)',
+        'short_label': 'Nivel III (Urgencia)',
+        'description': 'Condición clínica que requiere evaluación diagnóstica e intervenciones. Tiempo objetivo: ≤ 60 minutos.',
+        'color': '#ffc107',  # Amarillo
+        'max_wait_minutes': 60,
+        'priority_weight': 50.0,
+    },
+    4: {
+        'roman': 'IV',
+        'label': 'Nivel IV - Prioritario / Urgencia Menor',
+        'short_label': 'Nivel IV (Prioritario)',
+        'description': 'Condición médica sin compromiso vital inminente; consulta médica prioritaria. Tiempo objetivo: ≤ 120 minutos.',
+        'color': '#28a745',  # Verde
+        'max_wait_minutes': 120,
+        'priority_weight': 20.0,
+    },
+    5: {
+        'roman': 'V',
+        'label': 'Nivel V - No Urgente (Baja complejidad)',
+        'short_label': 'Nivel V (No Urgente)',
+        'description': 'Problema clínico crónico o subagudo sin deterioro funcional inmediato. Tiempo objetivo: ≤ 180 minutos.',
+        'color': '#17a2b8',  # Azul
+        'max_wait_minutes': 180,
+        'priority_weight': 0.0,
+    },
+}
+
+TRIAGE_LEVEL_LABELS: Dict[int, str] = {
+    lvl: info['short_label'] for lvl, info in TRIAGE_LEVELS.items()
+}
+
+# ==============================================================================
+# SÍNTOMAS COMUNES SUGERIDOS (PARA APOYO EN FORMULARIO Y SIMULACIÓN)
+# ==============================================================================
+COMMON_SYMPTOMS: List[str] = [
+    'Dolor torácico opresivo con irradiación a miembro superior',
+    'Dificultad respiratoria aguda y disnea de reposo',
+    'Cefalea intensa súbita de inicio fulminante',
+    'Dolor abdominal agudo con defensa muscular',
+    'Fiebre cuantificada con escalofríos y malestar general',
+    'Alteración del estado de conciencia o síncope',
+    'Traumatismo contuso en extremidad con limitación funcional',
+    'Tos persistente con expectoración mucopurulenta',
+    'Crisis hipertensiva asintomática',
+    'Lipotimia y sensación de mareo postural',
 ]
 
 # ==============================================================================
@@ -160,20 +236,22 @@ NEWS2_RISK_LEVELS: Dict[str, Dict[str, str]] = {
 DISCLAIMER_TEXT: str = (
     "AVISO LEGAL Y ACADÉMICO: Este software es un prototipo desarrollado con fines "
     "estrictamente académicos e investigativos por el equipo TechMinds. "
-    "Todos los datos de pacientes, mediciones y eventos son completamente ficticios o simulados. "
-    "Esta herramienta NO es un dispositivo médico certificado, NO realiza diagnósticos clínicos "
-    "y NO está autorizada para la toma de decisiones asistenciales reales ni triaje vinculante en humanos. "
+    "Todos los datos de pacientes, nombres, mediciones y eventos son completamente ficticios o simulados. "
+    "Esta herramienta NO es un dispositivo médico certificado, NO realiza diagnósticos clínicos vinculantes "
+    "y NO está autorizada para la toma de decisiones asistenciales reales en seres humanos. "
     "Cualquier asignación de prioridad es puramente administrativa para demostración del sistema."
 )
 
 METHODOLOGY_TEXT: str = (
     "METODOLOGÍA CLÍNICA Y LIMITACIONES:\n"
-    "1. Escala de Advertencia Temprana (NEWS2): La implementación de la puntuación de deterioro "
+    "1. Triaje Profesional en Admisión: El sistema registra el nivel de triaje clínico profesional "
+    "(Niveles I a V según normativa de urgencias), capturado presencialmente por el equipo asistencial.\n"
+    "2. Escala de Advertencia Temprana (NEWS2): La implementación de la puntuación de deterioro "
     "fisiológico sigue las especificaciones oficiales del Royal College of Physicians (RCP, 2017).\n"
-    "2. Diferenciación Conceptual Estricta: La puntuación NEWS2 mide exclusivamente riesgo de deterioro "
-    "fisiológico agudo y NO equivale a una categoría de triaje de urgencias (Niveles I a V de Manchester, ESI o RAC).\n"
-    "3. Triaje Clínico Presencial: El sistema NO auto-asigna categorías de triaje I-V mediante umbrales "
-    "arbitrarios. Dicha clasificación requiere siempre valoración profesional presencial y anamnesis médica.\n"
+    "3. Diferenciación Conceptual Estricta: Se mantiene una estricta separación entre:\n"
+    "   - El triaje clínico profesional inicial (clasificación médica en admisión).\n"
+    "   - La puntuación NEWS2 (detector dinámico de descompensación hemodinámica).\n"
+    "   - La prioridad administrativa de cola (orden heurístico explicable que equilibra triaje, NEWS2, alertas y espera).\n"
     "4. Prioridad Administrativa de Cola: El orden en la cola administrativa es un índice heurístico "
-    "ponderado para gestión operativa del prototipo, no un juicio diagnóstico."
+    "ponderado para gestión operativa del prototipo, no un juicio diagnóstico sustitutivo."
 )

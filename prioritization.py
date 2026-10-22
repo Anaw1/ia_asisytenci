@@ -30,6 +30,7 @@ from config import (
     ALERT_TYPES,
     NEWS2_HIGH_SCORE_THRESHOLD,
     NEWS2_MEDIUM_SCORE_RANGE,
+    TRIAGE_LEVELS,
     DATE_FORMAT,
 )
 
@@ -75,7 +76,22 @@ def calculate_priority_score(
     score: float = 0.0
     reasons: List[str] = []
 
-    # 1. Alertas pendientes que requieren revisión asistencial
+    # 1. Puntuación / Nivel de triaje clínico profesional inicial (Niveles I a V)
+    triage_lvl = getattr(patient, "triage_level", None) if patient else None
+    if triage_lvl is not None and triage_lvl in TRIAGE_LEVELS:
+        tinfo = TRIAGE_LEVELS[triage_lvl]
+        t_weight = tinfo.get("priority_weight", 0.0)
+        t_short = tinfo.get("short_label", f"Nivel {triage_lvl}")
+        if t_weight > 0.0:
+            score += t_weight
+            reasons.append(
+                f"+{t_weight:.0f} pts: Triaje Clínico Inicial {t_short} "
+                f"(prioridad médica presencial asignada al ingreso)"
+            )
+        else:
+            reasons.append(f"0 pts: Triaje Clínico Inicial {t_short} (consulta no urgente)")
+
+    # 2. Alertas pendientes que requieren revisión asistencial
     for alert in pending_alerts:
         alert_info = ALERT_TYPES.get(alert.alert_type, {})
         requires_review = alert_info.get("requires_review", True)
@@ -291,14 +307,28 @@ def format_queue_for_display(queue: List[QueueEntry]) -> List[Dict[str, Any]]:
                 risk = entry.last_evaluation.risk_level or "N/D"
                 eval_text = f"NEWS2: {entry.last_evaluation.score} ({risk})"
 
-        patient_code = entry.patient.patient_code if entry.patient else "N/D"
+        p = entry.patient
+        patient_code = p.patient_code if p else "N/D"
+        patient_name = (p.full_name or p.name) if p else "N/D"
+
+        triage_text = "N/D"
+        if p and p.triage_level:
+            tinfo = TRIAGE_LEVELS.get(p.triage_level, {})
+            triage_text = tinfo.get("short_label", f"Nivel {p.triage_level}")
+
+        symptoms_text = p.symptoms if (p and p.symptoms) else "Sin síntomas registrados"
+        dx_text = p.initial_diagnosis if (p and p.initial_diagnosis) else "Pendiente de diagnóstico"
 
         display_rows.append({
             "Posición": entry.position,
             "Código": patient_code,
+            "Nombre": patient_name,
+            "Triaje": triage_text,
             "Tiempo espera": f"{entry.wait_time_minutes:.0f} min",
             "Última evaluación": eval_text,
             "Alertas pendientes": _get_alert_count(entry),
+            "Síntomas": symptoms_text,
+            "Diagnóstico inicial": dx_text,
             "Puntuación prioridad": round(entry.priority_score, 1),
             "Razón del orden": "; ".join(entry.reasons),
         })
