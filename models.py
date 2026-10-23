@@ -128,6 +128,21 @@ class QueueEntry:
     wait_time_minutes: float = 0.0
     last_updated: str = ''
 
+    @property
+    def patient_id(self) -> Optional[int]:
+        """Identificador del paciente asociado a la entrada en cola."""
+        return self.patient.id if self.patient else None
+
+    @property
+    def patient_code(self) -> str:
+        """Código institucional del paciente."""
+        return self.patient.patient_code if self.patient else ''
+
+    @property
+    def patient_name(self) -> str:
+        """Nombre del paciente o valor por defecto."""
+        return (self.patient.full_name or self.patient.name) if self.patient else ''
+
 
 @dataclass
 class SimulationConfig:

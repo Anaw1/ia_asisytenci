@@ -47,10 +47,17 @@ def _is_valid_int(val: Any) -> bool:
         return False
     if isinstance(val, int):
         return True
+    if isinstance(val, float):
+        return val.is_integer()
     if isinstance(val, str):
         val_str = val.strip()
         if re.match(r'^-?\d+$', val_str):
             return True
+        try:
+            f = float(val_str)
+            return f.is_integer()
+        except (ValueError, TypeError):
+            return False
     return False
 
 

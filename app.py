@@ -76,7 +76,7 @@ def create_simulation_config_instance(config_dict: Optional[Dict[str, Any]]) -> 
 
     # Duración de la simulación en horas
     if "duration_hours" in available_params:
-        kwargs["duration_hours"] = float(config_dict.get("duration_hours", config.SIM_DEFAULT_DURATION_HOURS))
+        kwargs["duration_hours"] = int(round(float(config_dict.get("duration_hours", config.SIM_DEFAULT_DURATION_HOURS))))
 
     # Intervalo de medición
     if "measurement_interval_minutes" in available_params:
@@ -739,24 +739,42 @@ def page_queue() -> None:
         "Seleccione un paciente de la cola para inspeccionar los factores matemáticos que determinaron su lugar:"
     )
 
-    entry_options = {
-        entry.patient_id: f"#{entry.position} - Paciente: {entry.patient_code} (Prioridad: {entry.priority_score:.1f})"
-        for entry in queue
-    }
+    entry_options = {}
+    for entry in queue:
+        pid = entry.patient_id if entry.patient_id is not None else (entry.patient.id if entry.patient else id(entry))
+        pcode = entry.patient_code or (entry.patient.patient_code if entry.patient else "N/D")
+        pname = entry.patient_name or ((entry.patient.full_name or entry.patient.name) if entry.patient else "")
+        label = f"#{entry.position} - Paciente: {pcode}"
+        if pname:
+            label += f" ({pname})"
+        label += f" | Prioridad: {entry.priority_score:.1f} pts"
+        entry_options[pid] = label
+
+    if not entry_options:
+        st.info("No hay pacientes en espera en este momento.")
+        return
 
     selected_queue_id = st.selectbox(
         "Seleccione paciente en cola:",
         options=list(entry_options.keys()),
-        format_func=lambda pid: entry_options[pid],
+        format_func=lambda pid: entry_options.get(pid, str(pid)),
     )
 
-    selected_entry = next((e for e in queue if e.patient_id == selected_queue_id), None)
+    selected_entry = next(
+        (
+            e for e in queue
+            if (e.patient_id == selected_queue_id)
+            or (e.patient and e.patient.id == selected_queue_id)
+            or id(e) == selected_queue_id
+        ),
+        None,
+    )
     if selected_entry:
         try:
             explanation = prioritization.explain_position(selected_entry)
             st.info(explanation)
-        except Exception:
-            st.error("Error al generar la explicación de posición.")
+        except Exception as ex:
+            st.error(f"Error al generar la explicación de posición: {str(ex)}")
 
 
 def page_simulation() -> None:
@@ -804,14 +822,16 @@ def page_simulation() -> None:
 
         # Validación formal de parámetros
         val_res = validation.validate_simulation_config(
-            num_patients=sim_config.num_patients,
-            duration_hours=getattr(sim_config, "duration_hours", 4.0),
-            measurement_interval=getattr(
-                sim_config,
-                "measurement_interval_minutes",
-                getattr(sim_config, "measurement_interval", 30),
+            num_patients=int(sim_config.num_patients),
+            duration_hours=int(getattr(sim_config, "duration_hours", 4)),
+            measurement_interval=int(
+                getattr(
+                    sim_config,
+                    "measurement_interval_minutes",
+                    getattr(sim_config, "measurement_interval", 30),
+                )
             ),
-            seed=getattr(sim_config, "random_seed", getattr(sim_config, "seed", 42)),
+            seed=int(getattr(sim_config, "random_seed", getattr(sim_config, "seed", 42))),
         )
 
         if not val_res.is_valid:
