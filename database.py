@@ -751,3 +751,60 @@ def delete_simulation_data(conn: sqlite3.Connection, simulation_id: Optional[str
     except Exception as err:
         logger.error("Error al eliminar datos de simulación: %s", err)
         raise
+
+
+def delete_patient(conn: sqlite3.Connection, patient_id: int) -> bool:
+    """Elimina un paciente y todos sus registros dependientes respetando la integridad referencial.
+
+    Elimina en orden:
+    1. Alertas asociadas
+    2. Evaluaciones asociadas
+    3. Mediciones asociadas
+    4. Eventos de simulación asociados
+    5. Fila del paciente en la tabla patients
+
+    Args:
+        conn: Conexión SQLite activa.
+        patient_id: Identificador numérico del paciente.
+
+    Returns:
+        True si el paciente fue eliminado, False si no existía.
+    """
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM patients WHERE id = ?", (patient_id,))
+            if not cursor.fetchone():
+                return False
+
+            cursor.execute("DELETE FROM alerts WHERE patient_id = ?", (patient_id,))
+            cursor.execute("DELETE FROM evaluations WHERE patient_id = ?", (patient_id,))
+            cursor.execute("DELETE FROM measurements WHERE patient_id = ?", (patient_id,))
+            cursor.execute("DELETE FROM simulation_events WHERE patient_id = ?", (patient_id,))
+            cursor.execute("DELETE FROM patients WHERE id = ?", (patient_id,))
+            return cursor.rowcount > 0
+    except Exception as err:
+        logger.error("Error al eliminar paciente ID %s: %s", patient_id, err)
+        raise
+
+
+def delete_patient_by_code(conn: sqlite3.Connection, patient_code: str) -> bool:
+    """Elimina un paciente a partir de su código institucional unificado (ej. 'PAC-XXXXXX').
+
+    Args:
+        conn: Conexión SQLite activa.
+        patient_code: Código del paciente.
+
+    Returns:
+        True si fue eliminado, False si no se encontró.
+    """
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM patients WHERE patient_code = ?", (patient_code,))
+        row = cursor.fetchone()
+        if not row:
+            return False
+        return delete_patient(conn, row['id'])
+    except Exception as err:
+        logger.error("Error al buscar paciente por código '%s' para eliminación: %s", patient_code, err)
+        raise

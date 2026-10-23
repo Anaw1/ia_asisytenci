@@ -31,6 +31,7 @@ from database import (
     get_measurements_for_patient,
     get_patient_by_id,
     get_simulation_events,
+    init_db,
     insert_measurement,
     insert_patient,
     insert_simulation_event,
@@ -305,6 +306,7 @@ def run_simulation(
         minutes=duration_minutes
     )
 
+    init_db(db_path)
     conn = get_connection(db_path)
     try:
         # 3. Crear pacientes con llegadas escalonadas
@@ -559,6 +561,7 @@ def run_simulation(
         return {
             'simulation_id': sim_id,
             'config': config,
+            'patients': sim_patients,
             'patients_created': len(sim_patients),
             'total_measurements': total_measurements,
             'total_alerts': total_alerts,

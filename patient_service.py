@@ -23,6 +23,8 @@ from database import (
     get_evaluations_for_patient,
     get_latest_evaluation,
     get_alerts_for_patient,
+    delete_patient as db_delete_patient,
+    delete_patient_by_code as db_delete_patient_by_code,
 )
 from validation import (
     validate_patient_code,
@@ -454,5 +456,91 @@ def update_status(
             "success": False,
             "errors": ["Error interno al actualizar el estado administrativo."],
         }
+    finally:
+        conn.close()
+
+
+def delete_patient(
+    patient_id: int, db_path: Optional[str] = None
+) -> Dict[str, Any]:
+    """Elimina permanentemente un paciente y todo su historial clínico de la base de datos.
+
+    Args:
+        patient_id: Identificador único del paciente.
+        db_path: Ruta opcional a la base de datos SQLite.
+
+    Returns:
+        Dict[str, Any]: Diccionario con 'success', 'patient_id', 'message' y 'errors'.
+    """
+    if not isinstance(patient_id, int) or patient_id <= 0:
+        return {
+            "success": False,
+            "patient_id": patient_id,
+            "errors": ["El identificador del paciente debe ser un entero positivo."],
+        }
+
+    conn = get_connection(db_path)
+    try:
+        patient = get_patient_by_id(conn, patient_id)
+        if patient is None:
+            return {
+                "success": False,
+                "patient_id": patient_id,
+                "errors": [f"No existe ningún paciente con el identificador #{patient_id}."],
+            }
+
+        deleted = db_delete_patient(conn, patient_id)
+        if deleted:
+            return {
+                "success": True,
+                "patient_id": patient_id,
+                "patient_code": patient.patient_code,
+                "message": f"El paciente {patient.patient_code} ({patient.full_name or 'Sin nombre'}) ha sido eliminado exitosamente del registro.",
+                "errors": [],
+            }
+        else:
+            return {
+                "success": False,
+                "patient_id": patient_id,
+                "errors": ["No se pudo completar la eliminación del paciente en la base de datos."],
+            }
+    except Exception as err:
+        return {
+            "success": False,
+            "patient_id": patient_id,
+            "errors": [f"Error interno durante la eliminación del paciente: {str(err)}"],
+        }
+    finally:
+        conn.close()
+
+
+def delete_patient_by_code(
+    patient_code: str, db_path: Optional[str] = None
+) -> Dict[str, Any]:
+    """Elimina permanentemente un paciente a partir de su código institucional ('PAC-XXXXXX').
+
+    Args:
+        patient_code: Código del paciente.
+        db_path: Ruta opcional a la base de datos SQLite.
+
+    Returns:
+        Dict[str, Any]: Diccionario con el resultado de la operación.
+    """
+    clean_code = sanitize_string(patient_code) if patient_code else ""
+    if not clean_code:
+        return {
+            "success": False,
+            "errors": ["El código de paciente no puede estar vacío."],
+        }
+
+    conn = get_connection(db_path)
+    try:
+        patient = get_patient_by_code(conn, clean_code)
+        if patient is None or patient.id is None:
+            return {
+                "success": False,
+                "errors": [f"No se encontró ningún paciente con el código '{clean_code}'."],
+            }
+        return delete_patient(patient.id, db_path=db_path)
     finally:
         conn.close()

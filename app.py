@@ -255,6 +255,39 @@ def page_patient_panel() -> None:
         except Exception:
             st.error("Error al cargar el historial del paciente.")
 
+    # Baja y eliminación definitiva del paciente del registro
+    st.markdown("---")
+    with st.expander("🗑️ Dar de Baja / Eliminar Paciente del Registro", expanded=False):
+        st.warning(
+            f"⚠️ **Advertencia de eliminación:** Esta acción eliminará permanentemente al paciente "
+            f"**{patient_obj.full_name or 'Sin nombre'}** (`{patient_obj.patient_code}`) "
+            f"junto con todas sus constantes vitales registradas, evaluaciones clínicas NEWS2 y alertas generadas.\n\n"
+            f"Esta operación no se puede deshacer.",
+            icon="⚠️",
+        )
+        confirm_delete = st.checkbox(
+            f"Confirmo que deseo eliminar definitivamente a {patient_obj.patient_code}",
+            key=f"chk_confirm_delete_{patient_obj.id}",
+        )
+        if st.button(
+            "🗑 Eliminar Paciente Definitivamente",
+            type="primary",
+            disabled=not confirm_delete,
+            key=f"btn_delete_patient_{patient_obj.id}",
+            use_container_width=True,
+        ):
+            try:
+                del_res = patient_service.delete_patient(patient_obj.id)
+                if del_res.get("success"):
+                    st.session_state["selected_patient_id"] = None
+                    st.success(del_res.get("message", "Paciente eliminado exitosamente."))
+                    st.rerun()
+                else:
+                    errors_msg = ", ".join(del_res.get("errors", ["Error desconocido"]))
+                    st.error(f"No fue posible eliminar al paciente: {errors_msg}")
+            except Exception:
+                st.error("Error inesperado al intentar eliminar el paciente de la base de datos.")
+
 
 def page_register_patient() -> None:
     """Formulario para la admisión y registro de un nuevo paciente."""
@@ -798,29 +831,10 @@ def page_simulation() -> None:
     results = st.session_state.get("simulation_results")
     if results:
         st.divider()
-        st.subheader("Resultados de la Simulación")
         try:
             dashboard.render_simulation_results(results)
         except Exception:
-            st.error("Error al renderizar el resumen de la simulación.")
-
-        events = results.get("events", [])
-        if events:
-            st.divider()
-            st.subheader("Línea de Tiempo de Eventos Simulados")
-            try:
-                dashboard.render_simulation_events(events)
-            except Exception:
-                st.error("Error al renderizar los eventos de la simulación.")
-
-        snapshots = results.get("queue_snapshots", [])
-        if snapshots:
-            st.divider()
-            st.subheader("Evolución Temporal de la Cola de Atención")
-            try:
-                dashboard.render_queue_evolution(snapshots)
-            except Exception:
-                st.error("Error al renderizar la evolución de la cola.")
+            st.error("Error al renderizar los resultados de la simulación.")
 
 
 def page_config_and_methodology() -> None:

@@ -950,66 +950,103 @@ def render_queue_chart(queue_data: List[Any]) -> None:
     st.plotly_chart(fig, use_container_width=True)
 
 
-def render_simulation_config() -> Optional[Dict[str, Any]]:
-    """Renderiza el formulario de configuración para una simulación temporal.
+def render_simulation_config() -> Dict[str, Any]:
+    """Renderiza los controles de configuración para una simulación temporal.
 
     Returns:
-        Diccionario con los parámetros si se presionó 'Ejecutar', de lo contrario None.
+        Diccionario con los parámetros del escenario configurados.
     """
-    with st.form('sim_configuration_form'):
-        st.subheader('⚙️ Parámetros del Escenario de Simulación')
+    st.subheader('⚙️ Parámetros del Escenario de Simulación')
+    st.markdown(
+        'Configure los parámetros para la generación determinista de pacientes sintéticos y evolución temporal.'
+    )
+
+    c1, c2 = st.columns(2)
+    with c1:
+        num_patients = st.number_input(
+            'Cantidad de Pacientes Sintéticos',
+            min_value=1,
+            max_value=30,
+            value=SIM_DEFAULT_PATIENTS,
+            step=1,
+            help='Número de perfiles fisiológicos ficticios a instanciar.',
+        )
+        duration_hours = st.number_input(
+            'Duración Total del Escenario (horas)',
+            min_value=1,
+            max_value=24,
+            value=SIM_DEFAULT_DURATION_HOURS,
+            step=1,
+            help='Ventana temporal total a simular.',
+        )
+    with c2:
+        measurement_interval = st.number_input(
+            'Intervalo entre Mediciones (minutos)',
+            min_value=5,
+            max_value=120,
+            value=SIM_DEFAULT_MEASUREMENT_INTERVAL_MINUTES,
+            step=5,
+            help='Frecuencia temporal con la que se registran signos vitales.',
+        )
+        random_seed = st.number_input(
+            'Semilla Pseudoaleatoria (Seed)',
+            min_value=1,
+            max_value=999999,
+            value=SIM_RANDOM_SEED,
+            step=1,
+            help='Semilla fija para asegurar reproducibilidad idéntica.',
+        )
+
+    # Vista previa de los 5 perfiles clínicos preprogramados
+    with st.expander('👥 Ver Perfiles Clínicos Predefinidos de la Simulación', expanded=True):
         st.markdown(
-            'Configure los parámetros para la generación determinista de pacientes sintéticos y evolución temporal.'
+            'El sistema utiliza perfiles sintéticos con cuadros clínicos y evolución realista:'
         )
+        profiles_data = [
+            {
+                'Perfil': 'Estable',
+                'Paciente Ficticio': 'Carlos Gómez (Ficticio)',
+                'Triaje': 'Nivel IV (Prioritario)',
+                'Diagnóstico Inicial': 'Lumbalgia aguda mecánica no complicada',
+                'Síntomas': 'Dolor lumbar mecánico de 2 días de evolución, afebril',
+            },
+            {
+                'Perfil': 'Deterioro leve',
+                'Paciente Ficticio': 'María Fernanda Torres (Ficticio)',
+                'Triaje': 'Nivel III (Urgencia)',
+                'Diagnóstico Inicial': 'Infección respiratoria aguda baja / Sospecha de neumonía',
+                'Síntomas': 'Tos persistente con expectoración, disnea de medianos esfuerzos',
+            },
+            {
+                'Perfil': 'Crítico',
+                'Paciente Ficticio': 'Jorge Eliécer Silva (Ficticio)',
+                'Triaje': 'Nivel I (Reanimación)',
+                'Diagnóstico Inicial': 'Síndrome coronario agudo / Choque cardiogénico inminente',
+                'Síntomas': 'Dolor torácico opresivo retroesternal con diaforesis profusa y disnea',
+            },
+            {
+                'Perfil': 'Datos incompletos',
+                'Paciente Ficticio': 'Ana Sofía Morales (Ficticio)',
+                'Triaje': 'Nivel III (Urgencia)',
+                'Diagnóstico Inicial': 'Cefalea aguda en estudio (requiere completar signos vitales)',
+                'Síntomas': 'Cefalea holocraneana pulsátil intensa, náuseas y fotofobia',
+            },
+            {
+                'Perfil': 'Mejora gradual',
+                'Paciente Ficticio': 'Luis Alberto Mendoza (Ficticio)',
+                'Triaje': 'Nivel II (Emergencia)',
+                'Diagnóstico Inicial': 'Crisis asmática aguda moderada en resolución',
+                'Síntomas': 'Crisis asmática con dificultad ventilatoria, en mejoría',
+            },
+        ]
+        st.dataframe(pd.DataFrame(profiles_data), use_container_width=True, hide_index=True)
 
-        c1, c2 = st.columns(2)
-        with c1:
-            num_patients = st.number_input(
-                'Cantidad de Pacientes Sintéticos',
-                min_value=1,
-                max_value=30,
-                value=SIM_DEFAULT_PATIENTS,
-                step=1,
-                help='Número de perfiles fisiológicos ficticios a instanciar.',
-            )
-            duration_hours = st.number_input(
-                'Duración Total del Escenario (horas)',
-                min_value=1,
-                max_value=24,
-                value=SIM_DEFAULT_DURATION_HOURS,
-                step=1,
-                help='Ventana temporal total a simular.',
-            )
-        with c2:
-            measurement_interval = st.number_input(
-                'Intervalo entre Mediciones (minutos)',
-                min_value=5,
-                max_value=120,
-                value=SIM_DEFAULT_MEASUREMENT_INTERVAL_MINUTES,
-                step=5,
-                help='Frecuencia temporal con la que se registran signos vitales.',
-            )
-            random_seed = st.number_input(
-                'Semilla Pseudoaleatoria (Seed)',
-                min_value=1,
-                max_value=999999,
-                value=SIM_RANDOM_SEED,
-                step=1,
-                help='Semilla fija para asegurar reproducibilidad idéntica.',
-            )
-
-        submitted = st.form_submit_button(
-            '🚀 Iniciar Simulación', use_container_width=True
-        )
-        if submitted:
-            return {
-                'num_patients': int(num_patients),
-                'duration_hours': int(duration_hours),
-                'measurement_interval_minutes': int(measurement_interval),
-                'random_seed': int(random_seed),
-            }
-
-    return None
+    return {
+        'num_patients': int(num_patients),
+        'duration_hours': int(duration_hours),
+        'measurement_interval_minutes': int(measurement_interval),
+        'random_seed': int(random_seed),
+    }
 
 
 def render_simulation_events(events: List[SimulationEvent]) -> None:
@@ -1121,6 +1158,30 @@ def render_simulation_results(results: Dict[str, Any]) -> None:
     c4.metric('Total Eventos Registrados', results.get('total_events', 0))
 
     st.markdown('---')
+
+    # Visualización detallada de los pacientes creados en la simulación
+    patients = results.get('patients', [])
+    if patients:
+        st.subheader('👥 Pacientes Ficticios Incorporados en Urgencias')
+        rows = []
+        for p in patients:
+            prof = p.get('profile', {})
+            t_lvl = prof.get('triage_level')
+            t_label = TRIAGE_LEVEL_LABELS.get(t_lvl, f'Nivel {t_lvl}') if 'TRIAGE_LEVEL_LABELS' in globals() else f'Nivel {t_lvl}'
+            rows.append({
+                'Código': p.get('code'),
+                'Nombre del Paciente': prof.get('patient_name'),
+                'Perfil': prof.get('name'),
+                'Triaje Inicial': t_label,
+                'Síntomas Reportados': prof.get('symptoms'),
+                'Diagnóstico Inicial': prof.get('initial_diagnosis'),
+            })
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        st.info(
+            '💡 **Paso siguiente:** Puedes explorar el detalle de cada paciente en el **📋 Panel de Pacientes** '
+            'o ver su posición y factores de atención en la **📈 Cola de Atención**.'
+        )
+        st.markdown('---')
 
     snapshots = results.get('queue_snapshots', [])
     if snapshots:
