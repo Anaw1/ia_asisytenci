@@ -123,56 +123,800 @@ def get_status_emoji(status: str) -> str:
     return emojis.get(status, '❓')
 
 
+def get_glassmorphism_css() -> str:
+    """Retorna la hoja de estilos CSS Dark Glassmorphism para la plataforma clínica."""
+    return """
+    <style>
+    /* Google Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    /* Variables del tema clínico Dark Glassmorphism */
+    :root {
+        --bg-glass-dark: rgba(15, 23, 42, 0.72);
+        --bg-glass-card: rgba(17, 28, 51, 0.65);
+        --bg-glass-hover: rgba(26, 41, 74, 0.78);
+        --border-glass: rgba(255, 255, 255, 0.09);
+        --border-glass-glow: rgba(56, 189, 248, 0.45);
+        --primary-cyan: #38bdf8;
+        --accent-emerald: #10b981;
+        --accent-amber: #f59e0b;
+        --accent-coral: #ef4444;
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+        --text-muted: #64748b;
+    }
+
+    /* Fondo principal con efecto hospitalario difuminado y gradiente oscuro de alta legibilidad */
+    .stApp {
+        background: 
+            radial-gradient(circle at 12% 18%, rgba(20, 50, 95, 0.45) 0%, transparent 40%),
+            radial-gradient(circle at 88% 82%, rgba(13, 148, 136, 0.25) 0%, transparent 45%),
+            linear-gradient(135deg, rgba(8, 15, 30, 0.94) 0%, rgba(13, 22, 40, 0.96) 50%, rgba(15, 23, 42, 0.98) 100%),
+            url('https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=1920&q=80') center center / cover no-repeat fixed;
+        background-color: #080f1e;
+        color: var(--text-primary);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    /* Ocultar barra superior por defecto de Streamlit para acabado limpio */
+    header[data-testid="stHeader"] {
+        background: transparent !important;
+        backdrop-filter: none !important;
+    }
+
+    /* Barra lateral estilo Dark Glass */
+    [data-testid="stSidebar"] {
+        background: rgba(10, 17, 32, 0.88) !important;
+        backdrop-filter: blur(24px) !important;
+        -webkit-backdrop-filter: blur(24px) !important;
+        border-right: 1px solid var(--border-glass) !important;
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.45) !important;
+    }
+
+    [data-testid="stSidebar"] .stRadio label {
+        color: #cbd5e1 !important;
+        transition: all 0.2s ease !important;
+        padding: 5px 8px !important;
+        border-radius: 8px !important;
+    }
+
+    [data-testid="stSidebar"] .stRadio label:hover {
+        color: var(--primary-cyan) !important;
+        background: rgba(56, 189, 248, 0.08) !important;
+    }
+
+    /* Tarjeta de alerta destacada en la barra lateral */
+    .sidebar-alert-card {
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.16) 0%, rgba(180, 83, 9, 0.10) 100%);
+        border: 1px solid rgba(245, 158, 11, 0.45);
+        border-radius: 12px;
+        padding: 14px;
+        margin: 12px 0 8px 0;
+        box-shadow: 0 4px 20px rgba(245, 158, 11, 0.15), inset 0 0 12px rgba(245, 158, 11, 0.05);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        transition: all 0.3s ease;
+    }
+    .sidebar-alert-card:hover {
+        border-color: rgba(245, 158, 11, 0.8);
+        box-shadow: 0 6px 24px rgba(245, 158, 11, 0.28);
+        transform: translateY(-1px);
+    }
+    .sidebar-alert-title {
+        font-weight: 700;
+        color: #fbbf24;
+        font-size: 0.95rem;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .sidebar-alert-sub {
+        font-size: 0.8rem;
+        color: #fde68a;
+        margin-bottom: 10px;
+    }
+
+    /* Cabecera superior moderna con perfil de usuario */
+    .top-nav-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--bg-glass-dark);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid var(--border-glass);
+        border-radius: 16px;
+        padding: 16px 26px;
+        margin-bottom: 24px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+        position: relative;
+        overflow: hidden;
+    }
+    .top-nav-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent 0%, #38bdf8 30%, #10b981 70%, transparent 100%);
+    }
+    .header-left-title {
+        font-size: 1.45rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: #f8fafc;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .header-left-subtitle {
+        font-size: 0.88rem;
+        color: #94a3b8;
+        margin-top: 4px;
+        font-weight: 500;
+    }
+    .header-right-user {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+    .user-profile-badge {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: rgba(30, 41, 59, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 30px;
+        padding: 6px 14px 6px 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    .user-avatar-img {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: 2px solid #38bdf8;
+        object-fit: cover;
+    }
+    .user-name-text {
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #f1f5f9;
+    }
+    .header-pill-btn {
+        background: rgba(30, 41, 59, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #94a3b8;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+    }
+    .notification-bell {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        background: rgba(30, 41, 59, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        color: #e2e8f0;
+        font-size: 1rem;
+    }
+    .bell-badge-pill {
+        position: absolute;
+        top: -3px;
+        right: -3px;
+        background: #ef4444;
+        color: white;
+        font-size: 0.68rem;
+        font-weight: 700;
+        width: 17px;
+        height: 17px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+    }
+
+    /* Hero Glass Container */
+    .glass-hero-container {
+        background: var(--bg-glass-dark);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid var(--border-glass);
+        border-radius: 18px;
+        padding: 26px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+        margin-bottom: 26px;
+        position: relative;
+    }
+
+    /* Tarjetas Modulares Glass */
+    .glass-card {
+        background: var(--bg-glass-card);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--border-glass);
+        border-radius: 14px;
+        padding: 20px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        height: 100%;
+    }
+    .glass-card:hover {
+        border-color: var(--border-glass-glow);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(56, 189, 248, 0.12);
+        transform: translateY(-2px);
+    }
+
+    /* Tarjetas de Acceso Rápido / Shortcuts */
+    .glass-action-card {
+        background: linear-gradient(145deg, rgba(17, 28, 51, 0.72) 0%, rgba(15, 23, 42, 0.82) 100%);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--border-glass);
+        border-radius: 14px;
+        padding: 22px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 220px;
+    }
+    .glass-action-card:hover {
+        border-color: rgba(56, 189, 248, 0.45);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), 0 0 20px rgba(56, 189, 248, 0.15);
+        transform: translateY(-3px);
+    }
+    .action-card-header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 12px;
+    }
+    .action-icon-wrap {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(14, 165, 233, 0.1) 100%);
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+    }
+    .action-title {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #f1f5f9;
+        margin: 0;
+    }
+    .action-list {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 18px 0;
+        font-size: 0.88rem;
+        color: #94a3b8;
+    }
+    .action-list li {
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .action-list li::before {
+        content: '•';
+        color: #38bdf8;
+        font-weight: bold;
+    }
+
+    /* Banner de Advertencia Regulatoria */
+    .glass-warning-banner {
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.14) 0%, rgba(180, 83, 9, 0.08) 100%);
+        border: 1px solid rgba(245, 158, 11, 0.38);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin: 22px 0;
+        box-shadow: 0 6px 24px rgba(245, 158, 11, 0.12);
+        backdrop-filter: blur(14px);
+        font-size: 0.88rem;
+        line-height: 1.55;
+        color: #fef3c7;
+    }
+
+    /* Pie de página institucional */
+    .glass-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 4px 8px 4px;
+        margin-top: 24px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        font-size: 0.84rem;
+        color: #64748b;
+    }
+
+    /* Sobrescribir Métricas de Streamlit */
+    div[data-testid="stMetric"] {
+        background: var(--bg-glass-card) !important;
+        backdrop-filter: blur(14px) !important;
+        -webkit-backdrop-filter: blur(14px) !important;
+        border: 1px solid var(--border-glass) !important;
+        border-radius: 12px !important;
+        padding: 14px 18px !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+        transition: all 0.25s ease !important;
+    }
+    div[data-testid="stMetric"]:hover {
+        border-color: var(--border-glass-glow) !important;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35), 0 0 12px rgba(56, 189, 248, 0.12) !important;
+    }
+    div[data-testid="stMetricLabel"] {
+        color: #94a3b8 !important;
+        font-size: 0.84rem !important;
+        font-weight: 500 !important;
+    }
+    div[data-testid="stMetricValue"] {
+        color: #f8fafc !important;
+        font-weight: 700 !important;
+        font-size: 1.55rem !important;
+    }
+
+    /* Sobrescribir Botones de Streamlit */
+    .stButton > button {
+        background: linear-gradient(135deg, rgba(30, 58, 138, 0.65) 0%, rgba(15, 23, 42, 0.85) 100%) !important;
+        color: #f1f5f9 !important;
+        border: 1px solid rgba(56, 189, 248, 0.35) !important;
+        border-radius: 10px !important;
+        padding: 0.5rem 1.15rem !important;
+        font-weight: 600 !important;
+        backdrop-filter: blur(10px) !important;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+    }
+    .stButton > button:hover {
+        background: linear-gradient(135deg, rgba(37, 99, 235, 0.85) 0%, rgba(30, 58, 138, 0.95) 100%) !important;
+        border-color: rgba(56, 189, 248, 0.65) !important;
+        box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35), 0 0 16px rgba(56, 189, 248, 0.2) !important;
+        transform: translateY(-1px) !important;
+        color: #ffffff !important;
+    }
+    .stButton > button:active {
+        transform: translateY(1px) !important;
+    }
+
+    /* Sobrescribir Tablas / DataFrames */
+    [data-testid="stDataFrame"] {
+        border: 1px solid var(--border-glass) !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
+        background: rgba(15, 23, 42, 0.5) !important;
+        backdrop-filter: blur(14px) !important;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25) !important;
+    }
+
+    /* Sobrescribir Expanders */
+    div[data-testid="stExpander"] {
+        background: rgba(17, 28, 51, 0.45) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border: 1px solid var(--border-glass) !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
+        margin-bottom: 12px !important;
+    }
+
+    /* Sobrescribir Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px !important;
+        background: rgba(15, 23, 42, 0.5) !important;
+        padding: 6px 8px !important;
+        border-radius: 12px !important;
+        border: 1px solid var(--border-glass) !important;
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 8px !important;
+        color: #94a3b8 !important;
+        padding: 8px 16px !important;
+        font-weight: 500 !important;
+    }
+    .stTabs [aria-selected="true"] {
+        background: rgba(30, 58, 138, 0.6) !important;
+        color: #38bdf8 !important;
+        border: 1px solid rgba(56, 189, 248, 0.35) !important;
+    }
+    </style>
+    """
+
+
+def render_top_header() -> None:
+    """Renderiza la cabecera superior moderna con título y perfil de usuario activo."""
+    st.markdown(
+        f"""
+        <div class="top-nav-header">
+            <div class="header-left">
+                <div class="header-left-title">
+                    <span>🏥 {APP_NAME} - Sistema de Priorización Dinámica en Urgencias</span>
+                </div>
+                <div class="header-left-subtitle">
+                    Equipo de Desarrollo: <strong style="color:#38bdf8;">{TEAM_NAME}</strong>
+                </div>
+            </div>
+            <div class="header-right-user">
+                <div class="user-profile-badge">
+                    <img src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=100&q=80" class="user-avatar-img" alt="Avatar Dr. Silva" />
+                    <span class="user-name-text">Dr. A. Silva</span>
+                    <span style="font-size:0.7rem; color:#94a3b8;">▼</span>
+                </div>
+                <div class="header-pill-btn">Fork</div>
+                <div class="notification-bell">
+                    🔔<span class="bell-badge-pill">1</span>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def apply_dark_glass_theme(
+    fig: go.Figure,
+    height: Optional[int] = None,
+    title: Optional[str] = None,
+) -> go.Figure:
+    """Aplica un tema Dark Glassmorphism consistente a cualquier figura de Plotly.
+
+    Args:
+        fig: Figura de Plotly a estilizar.
+        height: Altura opcional en píxeles.
+        title: Título opcional del gráfico.
+
+    Returns:
+        Figura con tema oscuro, fondos transparentes y tipografía médica moderna.
+    """
+    layout_args: Dict[str, Any] = {
+        'template': 'plotly_dark',
+        'paper_bgcolor': 'rgba(0,0,0,0)',
+        'plot_bgcolor': 'rgba(0,0,0,0)',
+        'font': dict(
+            family='Inter, -apple-system, sans-serif',
+            color='#e2e8f0',
+            size=11,
+        ),
+        'hoverlabel': dict(
+            bgcolor='rgba(15, 23, 42, 0.95)',
+            bordercolor='rgba(56, 189, 248, 0.5)',
+            font=dict(family='Inter, sans-serif', color='#f8fafc', size=11),
+        ),
+        'margin': dict(l=30, r=25, t=40 if title else 20, b=25),
+    }
+    if height is not None:
+        layout_args['height'] = height
+    if title is not None:
+        layout_args['title'] = dict(
+            text=title,
+            font=dict(family='Inter, sans-serif', size=13, color='#f1f5f9'),
+        )
+    fig.update_layout(**layout_args)
+    fig.update_xaxes(
+        showgrid=True,
+        gridcolor='rgba(255, 255, 255, 0.06)',
+        zerolinecolor='rgba(255, 255, 255, 0.1)',
+    )
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor='rgba(255, 255, 255, 0.06)',
+        zerolinecolor='rgba(255, 255, 255, 0.1)',
+    )
+    return fig
+
+
+def create_home_network_chart() -> go.Figure:
+    """Genera el gráfico interactivo de red fisiológica y triaje con estética Dark Glass."""
+    nodes = [
+        {"id": "NEWS2", "label": "Motor NEWS2", "x": 0.0, "y": 0.0, "color": "#f59e0b", "size": 22, "type": "Hub Central"},
+        {"id": "SpO2", "label": "SpO2 (98%)", "x": -0.6, "y": 0.55, "color": "#06b6d4", "size": 15, "type": "Signo Vital"},
+        {"id": "FC", "label": "FC (76 lpm)", "x": -0.75, "y": 0.05, "color": "#06b6d4", "size": 15, "type": "Signo Vital"},
+        {"id": "FR", "label": "FR (16 rpm)", "x": -0.5, "y": -0.55, "color": "#06b6d4", "size": 15, "type": "Signo Vital"},
+        {"id": "TA", "label": "TA (120/80)", "x": 0.1, "y": -0.65, "color": "#06b6d4", "size": 15, "type": "Signo Vital"},
+        {"id": "Temp", "label": "Temp (36.8°C)", "x": 0.55, "y": -0.45, "color": "#06b6d4", "size": 15, "type": "Signo Vital"},
+        {"id": "AVPU", "label": "AVPU (Alerta)", "x": 0.2, "y": 0.65, "color": "#06b6d4", "size": 15, "type": "Signo Vital"},
+        {"id": "Triaje1", "label": "Triaje I", "x": 0.72, "y": 0.5, "color": "#ef4444", "size": 17, "type": "Reanimación"},
+        {"id": "Triaje2", "label": "Triaje II", "x": 0.82, "y": 0.12, "color": "#f97316", "size": 17, "type": "Emergencia"},
+        {"id": "Triaje3", "label": "Triaje III", "x": 0.72, "y": -0.22, "color": "#eab308", "size": 17, "type": "Urgencia"},
+        {"id": "Prioridad", "label": "Prioridad Cola", "x": 0.45, "y": 0.05, "color": "#8b5cf6", "size": 19, "type": "Cola Dinámica"},
+    ]
+
+    edges = [
+        ("SpO2", "NEWS2"), ("FC", "NEWS2"), ("FR", "NEWS2"), ("TA", "NEWS2"),
+        ("Temp", "NEWS2"), ("AVPU", "NEWS2"),
+        ("NEWS2", "Prioridad"),
+        ("NEWS2", "Triaje1"), ("NEWS2", "Triaje2"), ("NEWS2", "Triaje3"),
+        ("Triaje1", "Prioridad"), ("Triaje2", "Prioridad"), ("Triaje3", "Prioridad"),
+        ("SpO2", "FC"), ("FR", "SpO2"), ("Temp", "TA"), ("AVPU", "SpO2"),
+    ]
+
+    node_dict = {n["id"]: n for n in nodes}
+
+    edge_x: List[Optional[float]] = []
+    edge_y: List[Optional[float]] = []
+    for src, dst in edges:
+        edge_x.extend([node_dict[src]["x"], node_dict[dst]["x"], None])
+        edge_y.extend([node_dict[src]["y"], node_dict[dst]["y"], None])
+
+    edge_trace = go.Scatter(
+        x=edge_x,
+        y=edge_y,
+        mode="lines",
+        line=dict(color="rgba(56, 189, 248, 0.32)", width=1.5),
+        hoverinfo="none",
+    )
+
+    node_x = [n["x"] for n in nodes]
+    node_y = [n["y"] for n in nodes]
+    node_color = [n["color"] for n in nodes]
+    node_size = [n["size"] for n in nodes]
+    node_text = [f"<b>{n['label']}</b><br>Nivel: {n['type']}" for n in nodes]
+
+    node_trace = go.Scatter(
+        x=node_x,
+        y=node_y,
+        mode="markers+text",
+        hoverinfo="text",
+        text=[n["label"] for n in nodes],
+        textposition="top center",
+        textfont=dict(family="Inter, sans-serif", size=10, color="#94a3b8"),
+        hovertext=node_text,
+        marker=dict(
+            color=node_color,
+            size=node_size,
+            line=dict(color="rgba(255, 255, 255, 0.8)", width=1.5),
+        ),
+    )
+
+    fig = go.Figure(data=[edge_trace, node_trace])
+    apply_dark_glass_theme(fig, height=330, title="Red Fisiológica y Dinámica de Triaje")
+    fig.update_layout(
+        showlegend=False,
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        margin=dict(l=10, r=10, t=35, b=10),
+    )
+    return fig
+
+
+def create_home_triage_bar_chart() -> go.Figure:
+    """Genera el gráfico de barras apiladas de priorización en tiempo real por niveles de triaje."""
+    categories = ['I', 'II', 'III', 'IV', 'V']
+    en_espera = [2, 7, 11, 15, 8]
+    en_atencion = [1, 4, 5, 3, 2]
+    alertas_activas = [2, 3, 2, 0, 0]
+
+    fig = go.Figure(data=[
+        go.Bar(name='En Espera', x=categories, y=en_espera, marker_color='#06b6d4'),
+        go.Bar(name='En Atención', x=categories, y=en_atencion, marker_color='#f59e0b'),
+        go.Bar(name='Alertas Críticas', x=categories, y=alertas_activas, marker_color='#ef4444'),
+    ])
+
+    fig.update_layout(
+        barmode='stack',
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            font=dict(size=10, color="#94a3b8"),
+        ),
+    )
+    apply_dark_glass_theme(fig, height=190, title="Priorización en Tiempo Real")
+    fig.update_layout(
+        xaxis_title="Nivel Triaje",
+        yaxis_title="Pacientes",
+        margin=dict(l=25, r=20, t=35, b=25),
+    )
+    return fig
+
+
 def render_disclaimer() -> None:
     """Muestra el descargo de responsabilidad académica en un cuadro de advertencia visible."""
     st.warning(DISCLAIMER_TEXT, icon='⚠️')
 
 
 def render_home_page() -> None:
-    """Renderiza la página principal con información institucional, alcance y advertencias."""
-    st.title(f'🏥 {APP_NAME}')
-    st.subheader(f'Equipo de Desarrollo: {TEAM_NAME}')
-    st.markdown('---')
+    """Renderiza la página principal con diseño Dark Glassmorphism idéntico al mockup."""
+    # Contenedor Glass Principal (Hero Container con 3 columnas)
+    st.markdown('<div class="glass-hero-container">', unsafe_allow_html=True)
 
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        st.markdown("""
-        ### Prototipo Académico de Priorización Dinámica en Urgencias
-        
-        Este sistema es un **prototipo de investigación y desarrollo académico** que demuestra cómo 
-        una aplicación analítica puede apoyar la gestión administrativa y la priorización transparente de pacientes 
-        en la cola de espera de un servicio de urgencias simulado.
-        
-        **Funcionalidades Principales:**
-        - 📋 **Registro de Pacientes Ficticios:** Ingreso ágil y trazabilidad con códigos únicos.
-        - 📊 **Monitoreo de Signos Vitales:** Captura periódica de parámetros fisiológicos.
-        - ⚡ **Evaluación Estandarizada NEWS2:** Cálculo riguroso según la especificación del Royal College of Physicians (2017).
-        - 🔔 **Motor de Alertas Configurable:** Detección de deterioro fisiológico, datos incompletos y tiempos de espera prolongados.
-        - 📈 **Cola Administrativa Dinámica:** Ordenamiento explicable con desglose de factores de prioridad.
-        - 🔬 **Simulación de Escenarios:** Generación de pacientes sintéticos con perfiles clínicos y evolución temporal.
-        """)
-    with col2:
-        st.info(
-            f"""
-        **Ficha Técnica del Prototipo**
-        - **Versión:** `{APP_VERSION}`
-        - **Entorno:** Simulación Controlada
-        - **Escala de Deterioro:** NEWS2 (2017)
-        - **Triage Oficial (I-V):** Humano / No automatizado
-        - **Persistencia:** SQLite Transaccional
-        """,
-            icon='ℹ️',
+    col_left, col_center, col_right = st.columns([1.5, 1.4, 1.1])
+
+    with col_left:
+        st.markdown(
+            """
+            <h3 style="font-weight:700; color:#f8fafc; margin-top:0; margin-bottom:12px;">
+                Prototipo Académico de Priorización Dinámica en Urgencias
+            </h3>
+            <p style="color:#94a3b8; font-size:0.9rem; line-height:1.55; margin-bottom:16px;">
+                Este sistema es un <strong>prototipo de investigación y desarrollo académico</strong> que demuestra cómo 
+                una aplicación analítica moderna puede apoyar la gestión administrativa y la priorización transparente de pacientes 
+                en la cola de espera de un servicio de urgencias simulado.
+            </p>
+            <div style="font-weight:600; color:#cbd5e1; margin-bottom:10px; font-size:0.92rem;">
+                Funcionalidades Principales:
+            </div>
+            <ul style="list-style:none; padding-left:0; margin:0; font-size:0.86rem; color:#94a3b8; line-height:1.65;">
+                <li style="margin-bottom:6px;"><span style="color:#38bdf8;">📋</span> <strong style="color:#e2e8f0;">Registro de Pacientes Ficticios:</strong> Ingreso ágil y trazabilidad con códigos únicos.</li>
+                <li style="margin-bottom:6px;"><span style="color:#10b981;">📊</span> <strong style="color:#e2e8f0;">Monitoreo de Signos Vitales:</strong> Captura periódica de parámetros fisiológicos.</li>
+                <li style="margin-bottom:6px;"><span style="color:#f59e0b;">⚡</span> <strong style="color:#e2e8f0;">Evaluación Estandarizada NEWS2:</strong> Cálculo riguroso según la especificación del Royal College of Physicians (2017).</li>
+                <li style="margin-bottom:6px;"><span style="color:#ef4444;">🔔</span> <strong style="color:#e2e8f0;">Motor de Alertas Configurable:</strong> Detección de deterioro fisiológico, datos incompletos y tiempos prolongados.</li>
+                <li style="margin-bottom:6px;"><span style="color:#a855f7;">📈</span> <strong style="color:#e2e8f0;">Cola Administrativa Dinámica:</strong> Ordenamiento explicable con desglose de factores de prioridad.</li>
+                <li style="margin-bottom:6px;"><span style="color:#06b6d4;">🔬</span> <strong style="color:#e2e8f0;">Simulación de Escenarios:</strong> Pacientes sintéticos con perfiles clínicos y evolución temporal.</li>
+            </ul>
+            """,
+            unsafe_allow_html=True,
         )
 
-    render_disclaimer()
+    with col_center:
+        fig_network = create_home_network_chart()
+        st.plotly_chart(
+            fig_network, use_container_width=True, config={'displayModeBar': False}
+        )
 
-    st.markdown('---')
-    st.markdown("""
-    > **Aviso Ético y Regulatorio:** El presente software **no** realiza diagnósticos médicos, **no** prescribe 
-    > tratamientos ni sustituye la valoración clínica presencial. La categorización de triage oficial en Colombia 
-    > (Niveles I a V, Resolución 5596 de 2015) es potestad exclusiva del profesional de salud y **no** es asignada 
-    > automáticamente por este sistema.
-    """)
+    with col_right:
+        fig_bar = create_home_triage_bar_chart()
+        st.plotly_chart(
+            fig_bar, use_container_width=True, config={'displayModeBar': False}
+        )
+
+        st.markdown(
+            f"""
+            <div class="glass-card" style="padding:14px; margin-top:8px;">
+                <div style="font-weight:700; color:#38bdf8; font-size:0.88rem; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+                    ℹ️ Ficha Técnica del Prototipo
+                </div>
+                <div style="font-size:0.8rem; color:#94a3b8; line-height:1.5;">
+                    <div>• <strong>Versión:</strong> <code style="color:#38bdf8;">{APP_VERSION}</code></div>
+                    <div>• <strong>Entorno:</strong> Simulación Controlada</div>
+                    <div>• <strong>Persistencia:</strong> SQLite Transaccional</div>
+                    <div>• <strong>Escala de Deterioro:</strong> NEWS2 (2017)</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Fila de 3 Tarjetas de Acceso Rápido / Shortcuts
+    sc1, sc2, sc3 = st.columns(3)
+
+    with sc1:
+        st.markdown(
+            """
+            <div class="glass-action-card">
+                <div>
+                    <div class="action-card-header">
+                        <div class="action-icon-wrap">👥</div>
+                        <div>
+                            <div class="action-title">Patient Registration</div>
+                            <div style="font-size:0.78rem; color:#94a3b8;">Admisión y Gestión Clínica</div>
+                        </div>
+                    </div>
+                    <ul class="action-list">
+                        <li>Registro rápido de pacientes ficticios</li>
+                        <li>Asignación de código y tiempo de espera</li>
+                        <li>Captura de síntomas y diagnóstico inicial</li>
+                    </ul>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "➕ Abrir Registro de Pacientes",
+            key="btn_quick_register",
+            use_container_width=True,
+        ):
+            st.session_state["current_page"] = "➕ Registrar Paciente"
+            st.rerun()
+
+    with sc2:
+        st.markdown(
+            """
+            <div class="glass-action-card">
+                <div>
+                    <div class="action-card-header">
+                        <div class="action-icon-wrap">🩺</div>
+                        <div>
+                            <div class="action-title">Vital Signs Monitor</div>
+                            <div style="font-size:0.78rem; color:#94a3b8;">Monitoreo Fisiológico Continuo</div>
+                        </div>
+                    </div>
+                    <ul class="action-list">
+                        <li>Registro de 7 signos vitales estándar</li>
+                        <li>Gráficos multivariables de tendencias</li>
+                        <li>Histórico temporal por paciente</li>
+                    </ul>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "📊 Abrir Registro de Medición",
+            key="btn_quick_vitals",
+            use_container_width=True,
+        ):
+            st.session_state["current_page"] = "📊 Registrar Medición"
+            st.rerun()
+
+    with sc3:
+        st.markdown(
+            """
+            <div class="glass-action-card">
+                <div>
+                    <div class="action-card-header">
+                        <div class="action-icon-wrap">⚡</div>
+                        <div>
+                            <div class="action-title">New EWS2 Evaluation</div>
+                            <div style="font-size:0.78rem; color:#94a3b8;">Estratificación y Alertas</div>
+                        </div>
+                    </div>
+                    <ul class="action-list">
+                        <li>Cálculo automatizado de puntaje NEWS2</li>
+                        <li>Estratificación de riesgo clínico (RCP)</li>
+                        <li>Reconocimiento y gestión de alertas</li>
+                    </ul>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "⚡ Ir a Evaluaciones y Alertas",
+            key="btn_quick_evals",
+            use_container_width=True,
+        ):
+            st.session_state["current_page"] = "⚡ Evaluación y Alertas"
+            st.rerun()
+
+    # Banner de Aviso Legal y Académico en estilo Glass Amber
+    st.markdown(
+        """
+        <div class="glass-warning-banner">
+            <strong>⚠️ AVISO LEGAL Y ACADÉMICO:</strong> Este software es un prototipo desarrollado con fines estrictamente 
+            académicos e investigativos por el equipo <strong>TechMinds</strong>. Todos los datos de pacientes, nombres, 
+            mediciones y asistencias no representan personas vivas ni sustituyen el juicio clínico profesional. Cualquier asignación 
+            de prioridad es puramente administrativa para demostración y docencia del sistema.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Pie de página institucional
+    st.markdown(
+        f"""
+        <div class="glass-footer">
+            <div>
+                <a href="#" style="color:#94a3b8; text-decoration:none; font-weight:500;">⚖️ Aviso Ético y Regulatorio</a>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#38bdf8;"></span>
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#a855f7;"></span>
+                <strong style="color:#e2e8f0;">{TEAM_NAME}</strong>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_patient_table(patients: List[Patient]) -> None:
@@ -510,7 +1254,8 @@ def render_vitals_chart(measurements: List[Measurement]) -> None:
             y=rr_vals,
             mode='lines+markers',
             name='Frec. Resp.',
-            line=dict(color='#2b5c8f'),
+            line=dict(color='#38bdf8', width=2),
+            marker=dict(size=7),
         ),
         row=1,
         col=1,
@@ -524,7 +1269,8 @@ def render_vitals_chart(measurements: List[Measurement]) -> None:
             y=spo2_vals,
             mode='lines+markers',
             name='SpO2',
-            line=dict(color='#1b9e77'),
+            line=dict(color='#10b981', width=2),
+            marker=dict(size=7),
         ),
         row=1,
         col=2,
@@ -538,7 +1284,8 @@ def render_vitals_chart(measurements: List[Measurement]) -> None:
             y=bp_vals,
             mode='lines+markers',
             name='Presión Sist.',
-            line=dict(color='#d95f02'),
+            line=dict(color='#f59e0b', width=2),
+            marker=dict(size=7),
         ),
         row=2,
         col=1,
@@ -552,7 +1299,8 @@ def render_vitals_chart(measurements: List[Measurement]) -> None:
             y=hr_vals,
             mode='lines+markers',
             name='Frec. Cardíaca',
-            line=dict(color='#e7298a'),
+            line=dict(color='#ec4899', width=2),
+            marker=dict(size=7),
         ),
         row=2,
         col=2,
@@ -566,7 +1314,8 @@ def render_vitals_chart(measurements: List[Measurement]) -> None:
             y=temp_vals,
             mode='lines+markers',
             name='Temperatura',
-            line=dict(color='#7570b3'),
+            line=dict(color='#a855f7', width=2),
+            marker=dict(size=7),
         ),
         row=3,
         col=1,
@@ -581,18 +1330,19 @@ def render_vitals_chart(measurements: List[Measurement]) -> None:
             y=avpu_vals,
             mode='lines+markers',
             name='AVPU',
-            line=dict(color='#66a61e'),
+            line=dict(color='#14b8a6', width=2),
+            marker=dict(size=7),
         ),
         row=3,
         col=2,
     )
 
-    fig.update_layout(
-        title_text='Tendencia Temporal de Parámetros Fisiológicos',
+    apply_dark_glass_theme(
+        fig,
         height=720,
-        showlegend=False,
-        margin=dict(l=40, r=40, t=60, b=40),
+        title='Tendencia Temporal de Parámetros Fisiológicos',
     )
+    fig.update_layout(showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -682,9 +1432,9 @@ def render_evaluation_history(evaluations: List[Evaluation]) -> None:
         y='Puntaje NEWS2',
         markers=True,
         title='Evolución Temporal de la Puntuación NEWS2',
-        color_discrete_sequence=['#d95f02'],
+        color_discrete_sequence=['#38bdf8'],
     )
-    fig.update_layout(height=320, margin=dict(l=30, r=30, t=50, b=30))
+    apply_dark_glass_theme(fig, height=320, title='Evolución Temporal de la Puntuación NEWS2')
     st.plotly_chart(fig, use_container_width=True)
 
     # Tabla histórica
@@ -936,16 +1686,17 @@ def render_queue_chart(queue_data: List[Any]) -> None:
         x='Paciente',
         y='Puntaje Prioridad',
         color='Puntaje Prioridad',
-        color_continuous_scale='Reds',
+        color_continuous_scale=['#06b6d4', '#38bdf8', '#f59e0b', '#ef4444'],
         title='Puntaje de Prioridad Administrativa por Paciente',
         text='Puntaje Prioridad',
     )
     fig.update_traces(textposition='outside')
+    apply_dark_glass_theme(
+        fig, height=380, title='Puntaje de Prioridad Administrativa por Paciente'
+    )
     fig.update_layout(
         xaxis_title='Paciente en Espera',
         yaxis_title='Puntaje Compuesto',
-        height=380,
-        margin=dict(l=30, r=30, t=50, b=30),
     )
     st.plotly_chart(fig, use_container_width=True)
 
@@ -1123,14 +1874,16 @@ def render_queue_evolution(queue_snapshots: List[List[Dict[str, Any]]]) -> None:
         color='Paciente',
         markers=True,
         title='Dinámica Temporal de Posiciones en Cola Administrativa',
+        color_discrete_sequence=['#38bdf8', '#10b981', '#f59e0b', '#ec4899', '#a855f7'],
     )
     # Invertir eje Y para que la posición #1 esté arriba
     fig.update_yaxes(autorange='reversed', dtick=1)
+    apply_dark_glass_theme(
+        fig, height=420, title='Dinámica Temporal de Posiciones en Cola Administrativa'
+    )
     fig.update_layout(
         xaxis_title='Paso Temporal de Simulación',
         yaxis_title='Posición en Cola (1 = Mayor Prioridad)',
-        height=420,
-        margin=dict(l=30, r=30, t=50, b=30),
     )
     st.plotly_chart(fig, use_container_width=True)
 

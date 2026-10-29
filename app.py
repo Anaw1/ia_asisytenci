@@ -932,13 +932,32 @@ def main() -> None:
         initial_sidebar_state="expanded",
     )
 
+    # Inyección de hoja de estilos Dark Glassmorphism
+    st.markdown(dashboard.get_glassmorphism_css(), unsafe_allow_html=True)
+
     # Inicialización del entorno
     init_app_state()
 
-    # Barra lateral de navegación
-    st.sidebar.title("🏥 IA Médica Asistencial")
-    st.sidebar.caption(f"{config.APP_NAME} v{config.APP_VERSION}")
-    st.sidebar.caption(f"Desarrollado por: **{config.TEAM_NAME}**")
+    # Cabecera superior moderna con perfil de usuario activo
+    dashboard.render_top_header()
+
+    # Barra lateral de navegación estilizada
+    st.sidebar.markdown(
+        f"""
+        <div style="padding: 10px 0 6px 0;">
+            <div style="font-size: 1.25rem; font-weight: 800; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                <span>🏥</span> {config.APP_NAME}
+            </div>
+            <div style="font-size: 0.8rem; color: #38bdf8; font-weight: 600; margin-top: 2px;">
+                v{config.APP_VERSION} &bull; Prototipo Académico
+            </div>
+            <div style="font-size: 0.78rem; color: #94a3b8; margin-top: 2px;">
+                Desarrollado por: <strong style="color: #f1f5f9;">{config.TEAM_NAME}</strong>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     st.sidebar.markdown("---")
 
@@ -962,18 +981,49 @@ def main() -> None:
     )
     st.session_state["current_page"] = selected_nav
 
-    # Conteo rápido de alertas en la barra lateral
+    # Conteo y tarjeta destacada de alertas en la barra lateral
     try:
         pending_alerts_count = len(st.session_state.alert_engine.get_pending_alerts())
-        if pending_alerts_count > 0:
-            st.sidebar.warning(f"⚠️ {pending_alerts_count} alerta(s) clínica(s) pendiente(s)")
     except Exception:
-        pass
+        pending_alerts_count = 0
+
+    if pending_alerts_count > 0:
+        st.sidebar.markdown(
+            f"""
+            <div class="sidebar-alert-card">
+                <div class="sidebar-alert-title">
+                    <span>⚠️</span> {pending_alerts_count} alerta(s) clínica(s) pendiente(s)
+                </div>
+                <div class="sidebar-alert-sub">Requiere revisión médica u operativa en sala.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.sidebar.button("Ver Detalles", key="btn_sidebar_view_alerts", use_container_width=True):
+            st.session_state["current_page"] = "⚡ Evaluación y Alertas"
+            st.rerun()
+    else:
+        st.sidebar.markdown(
+            """
+            <div class="sidebar-alert-card" style="border-color: rgba(16, 185, 129, 0.4); background: linear-gradient(135deg, rgba(16, 185, 129, 0.14) 0%, rgba(5, 150, 105, 0.08) 100%);">
+                <div class="sidebar-alert-title" style="color: #34d399;">
+                    <span>✅</span> Sin alertas pendientes
+                </div>
+                <div class="sidebar-alert-sub" style="color: #a7f3d0;">Parámetros fisiológicos estables en sala.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     st.sidebar.markdown("---")
-    st.sidebar.caption(
-        "**Uso Académico Exclusivo.** "
-        "No utilizar para decisiones clínicas reales ni triaje normativo."
+    st.sidebar.markdown(
+        """
+        <div style="font-size: 0.78rem; color: #94a3b8; line-height: 1.45; padding: 4px;">
+            <strong>Uso Académico Exclusivo.</strong><br>
+            No utilizar para decisiones clínicas reales ni triaje normativo.
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
     # Enrutamiento de páginas
