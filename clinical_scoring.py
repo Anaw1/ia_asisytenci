@@ -456,10 +456,14 @@ def detect_measurement_changes(
             curr_s = score_respiratory_rate(current.respiratory_rate).score
             diff = current.respiratory_rate - previous.respiratory_rate
             diff_sign = f"+{diff}" if diff > 0 else f"{diff}"
+            is_rel = (prev_s != curr_s) or (abs(diff) >= 4)
             changes.append({
                 "parameter": "Frecuencia respiratoria",
                 "previous_value": previous.respiratory_rate,
                 "current_value": current.respiratory_rate,
+                "prev_score": prev_s,
+                "curr_score": curr_s,
+                "is_clinically_relevant": is_rel,
                 "change": f"{previous.respiratory_rate} -> {current.respiratory_rate} rpm ({diff_sign})",
                 "score_change": f"{prev_s} -> {curr_s}",
                 "description": (
@@ -471,14 +475,34 @@ def detect_measurement_changes(
     # 2. Saturación de oxígeno
     if current.oxygen_saturation is not None and previous.oxygen_saturation is not None:
         if current.oxygen_saturation != previous.oxygen_saturation:
+            prev_o2_flag = bool(previous.supplemental_oxygen) if previous.supplemental_oxygen is not None else False
+            curr_o2_flag = bool(current.supplemental_oxygen) if current.supplemental_oxygen is not None else False
+            prev_scale = getattr(previous, "spo2_scale", 1)
+            curr_scale = getattr(current, "spo2_scale", 1)
+            prev_s = (
+                score_oxygen_saturation_scale2(previous.oxygen_saturation, prev_o2_flag).score
+                if prev_scale == 2
+                else score_oxygen_saturation_scale1(previous.oxygen_saturation).score
+            )
+            curr_s = (
+                score_oxygen_saturation_scale2(current.oxygen_saturation, curr_o2_flag).score
+                if curr_scale == 2
+                else score_oxygen_saturation_scale1(current.oxygen_saturation).score
+            )
+            diff_spo2 = current.oxygen_saturation - previous.oxygen_saturation
+            is_rel = (prev_s != curr_s) or (abs(diff_spo2) >= 3)
             changes.append({
                 "parameter": "Saturación de oxígeno",
                 "previous_value": previous.oxygen_saturation,
                 "current_value": current.oxygen_saturation,
+                "prev_score": prev_s,
+                "curr_score": curr_s,
+                "is_clinically_relevant": is_rel,
                 "change": f"{previous.oxygen_saturation}% -> {current.oxygen_saturation}%",
+                "score_change": f"{prev_s} -> {curr_s}",
                 "description": (
                     f"Saturación de oxígeno varió de {previous.oxygen_saturation}% a "
-                    f"{current.oxygen_saturation}%."
+                    f"{current.oxygen_saturation}% (puntuación NEWS2: {prev_s} a {curr_s})."
                 ),
             })
 
@@ -488,11 +512,17 @@ def detect_measurement_changes(
     if curr_o2 != prev_o2:
         curr_text = "Oxígeno suplementario" if curr_o2 else "Aire ambiente"
         prev_text = "Oxígeno suplementario" if prev_o2 else "Aire ambiente"
+        prev_s = 2 if prev_o2 else 0
+        curr_s = 2 if curr_o2 else 0
         changes.append({
             "parameter": "Oxígeno suplementario",
             "previous_value": prev_text,
             "current_value": curr_text,
+            "prev_score": prev_s,
+            "curr_score": curr_s,
+            "is_clinically_relevant": True,
             "change": f"{prev_text} -> {curr_text}",
+            "score_change": f"{prev_s} -> {curr_s}",
             "description": f"Soporte ventilatorio modificado de {prev_text} a {curr_text}.",
         })
 
@@ -501,10 +531,15 @@ def detect_measurement_changes(
         if current.systolic_blood_pressure != previous.systolic_blood_pressure:
             prev_s = score_systolic_bp(previous.systolic_blood_pressure).score
             curr_s = score_systolic_bp(current.systolic_blood_pressure).score
+            diff_sbp = current.systolic_blood_pressure - previous.systolic_blood_pressure
+            is_rel = (prev_s != curr_s) or (abs(diff_sbp) >= 20)
             changes.append({
                 "parameter": "Presión arterial sistólica",
                 "previous_value": previous.systolic_blood_pressure,
                 "current_value": current.systolic_blood_pressure,
+                "prev_score": prev_s,
+                "curr_score": curr_s,
+                "is_clinically_relevant": is_rel,
                 "change": f"{previous.systolic_blood_pressure} -> {current.systolic_blood_pressure} mmHg",
                 "score_change": f"{prev_s} -> {curr_s}",
                 "description": (
@@ -518,10 +553,15 @@ def detect_measurement_changes(
         if current.heart_rate != previous.heart_rate:
             prev_s = score_heart_rate(previous.heart_rate).score
             curr_s = score_heart_rate(current.heart_rate).score
+            diff_hr = current.heart_rate - previous.heart_rate
+            is_rel = (prev_s != curr_s) or (abs(diff_hr) >= 15)
             changes.append({
                 "parameter": "Frecuencia cardíaca",
                 "previous_value": previous.heart_rate,
                 "current_value": current.heart_rate,
+                "prev_score": prev_s,
+                "curr_score": curr_s,
+                "is_clinically_relevant": is_rel,
                 "change": f"{previous.heart_rate} -> {current.heart_rate} lpm",
                 "score_change": f"{prev_s} -> {curr_s}",
                 "description": (
@@ -535,10 +575,15 @@ def detect_measurement_changes(
         if round(current.temperature, 1) != round(previous.temperature, 1):
             prev_s = score_temperature(previous.temperature).score
             curr_s = score_temperature(current.temperature).score
+            diff_temp = round(current.temperature - previous.temperature, 1)
+            is_rel = (prev_s != curr_s) or (abs(diff_temp) >= 0.8)
             changes.append({
                 "parameter": "Temperatura corporal",
                 "previous_value": previous.temperature,
                 "current_value": current.temperature,
+                "prev_score": prev_s,
+                "curr_score": curr_s,
+                "is_clinically_relevant": is_rel,
                 "change": f"{previous.temperature:.1f} -> {current.temperature:.1f} °C",
                 "score_change": f"{prev_s} -> {curr_s}",
                 "description": (
@@ -551,11 +596,17 @@ def detect_measurement_changes(
     curr_c = str(current.consciousness_status).strip().upper() if current.consciousness_status else ""
     prev_c = str(previous.consciousness_status).strip().upper() if previous.consciousness_status else ""
     if curr_c != prev_c:
+        prev_s = score_consciousness(prev_c).score if prev_c else 0
+        curr_s = score_consciousness(curr_c).score if curr_c else 0
         changes.append({
             "parameter": "Nivel de conciencia (AVPU)",
             "previous_value": prev_c,
             "current_value": curr_c,
+            "prev_score": prev_s,
+            "curr_score": curr_s,
+            "is_clinically_relevant": True,
             "change": f"{prev_c} -> {curr_c}",
+            "score_change": f"{prev_s} -> {curr_s}",
             "description": f"Nivel de conciencia alterado de '{prev_c}' a '{curr_c}'.",
         })
 
@@ -563,7 +614,10 @@ def detect_measurement_changes(
 
 
 def create_evaluation_from_news2(
-    patient_id: int, measurement_id: int, news2_result: NEWS2Result
+    patient_id: int,
+    measurement_id: int,
+    news2_result: NEWS2Result,
+    evaluated_at: Optional[str] = None,
 ) -> Evaluation:
     """Crea una instancia del modelo Evaluation a partir del resultado del cálculo NEWS2.
 
@@ -571,6 +625,7 @@ def create_evaluation_from_news2(
         patient_id: Identificador del paciente.
         measurement_id: Identificador de la medición evaluada.
         news2_result: Objeto con los resultados calculados de NEWS2.
+        evaluated_at: Marca temporal ISO opcional (por defecto usa la hora actual).
 
     Returns:
         Evaluation: Objeto de modelo listo para ser persistido.
@@ -583,7 +638,7 @@ def create_evaluation_from_news2(
         id=None,
         patient_id=patient_id,
         measurement_id=measurement_id,
-        evaluated_at=datetime.now().isoformat(),
+        evaluated_at=evaluated_at or datetime.now().isoformat(),
         scoring_method="NEWS2",
         score=news2_result.total_score,
         completeness_status="completo" if news2_result.is_complete else "incompleto",

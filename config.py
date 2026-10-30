@@ -78,28 +78,45 @@ ALERT_TYPES: Dict[str, Dict[str, Any]] = {
     'new_measurement': {
         'label': 'Nueva medición registrada',
         'requires_review': False,
+        'category': 'informativa',
+        'description': 'Emite una notificación informativa de trazabilidad cuando se registran nuevas constantes vitales.',
     },
     'value_change': {
         'label': 'Cambio significativo en signos vitales',
         'requires_review': True,
+        'category': 'cambio_fisiologico',
+        'description': 'Alerta cuando los signos vitales muestran cambios de puntuación NEWS2 o variaciones fisiológicas clínicamente significativas.',
     },
     'incomplete_evaluation': {
         'label': 'Evaluación incompleta de signos vitales',
         'requires_review': True,
+        'category': 'riesgo_clinico',
+        'description': 'Alerta cuando faltan parámetros fisiológicos obligatorios para completar el cálculo NEWS2.',
     },
     'high_score': {
         'label': 'Puntuación NEWS2 elevada (Riesgo alto)',
         'requires_review': True,
+        'category': 'riesgo_clinico',
+        'description': 'Alerta ante deterioro clínico: puntaje medio (5-6), alto (≥7) o gatillo rojo individual (3 puntos en un parámetro).',
     },
     'long_wait': {
         'label': 'Tiempo de espera prolongado sin reevaluación',
         'requires_review': True,
+        'category': 'operativa',
+        'description': 'Alerta administrativa cuando el paciente en espera supera el umbral de minutos sin atención.',
     },
     'unacknowledged_alert': {
         'label': 'Alerta previa sin reconocer',
         'requires_review': True,
+        'category': 'operativa',
+        'description': 'Alerta cuando un paciente acumula múltiples alertas de riesgo o cambios sin reconocimiento asistencial.',
     },
 }
+
+# Tope máximo de puntos administrativos aportados por el tiempo de espera en la cola
+# (equivale a 6 horas / 360 min a razón de +1 pto cada 10 min). Evita que esperas
+# acumuladas de varios días desplacen a pacientes con riesgo clínico agudo elevado.
+MAX_WAIT_PRIORITY_POINTS: float = 36.0
 
 # ==============================================================================
 # REGLAS DE PRIORIZACIÓN DE COLA (ADMINISTRATIVAS, NO CLÍNICAS)

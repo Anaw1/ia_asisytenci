@@ -606,10 +606,22 @@ def check_duplicate_alert(
     patient_id: int,
     alert_type: str,
     since_minutes: int = 5,
+    reference_time: Optional[str] = None,
 ) -> bool:
     """Verifica si ya existe una alerta del mismo tipo para el paciente dentro de la ventana de minutos."""
     try:
-        cutoff_dt = datetime.now() - timedelta(minutes=since_minutes)
+        base_dt = datetime.now()
+        if reference_time:
+            try:
+                clean_ref = str(reference_time).replace("Z", "+00:00")
+                if "T" in clean_ref:
+                    base_dt = datetime.fromisoformat(clean_ref)
+                else:
+                    base_dt = datetime.strptime(clean_ref, DATE_FORMAT)
+            except Exception:
+                base_dt = datetime.now()
+
+        cutoff_dt = base_dt - timedelta(minutes=since_minutes)
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -632,13 +644,16 @@ def check_duplicate_alert(
                 # Homogeneizar zonas horarias si aplica
                 if alert_dt.tzinfo is not None and cutoff_dt.tzinfo is None:
                     cutoff_compare = cutoff_dt.astimezone(alert_dt.tzinfo)
+                    base_compare = base_dt.astimezone(alert_dt.tzinfo)
                 elif alert_dt.tzinfo is None and cutoff_dt.tzinfo is not None:
                     alert_dt = alert_dt.astimezone(cutoff_dt.tzinfo)
                     cutoff_compare = cutoff_dt
+                    base_compare = base_dt
                 else:
                     cutoff_compare = cutoff_dt
+                    base_compare = base_dt
 
-                if alert_dt >= cutoff_compare:
+                if cutoff_compare <= alert_dt <= base_compare + timedelta(minutes=since_minutes):
                     return True
             except Exception:
                 if raw_time >= cutoff_dt.isoformat():

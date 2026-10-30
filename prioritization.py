@@ -31,6 +31,7 @@ from config import (
     NEWS2_HIGH_SCORE_THRESHOLD,
     NEWS2_MEDIUM_SCORE_RANGE,
     TRIAGE_LEVELS,
+    MAX_WAIT_PRIORITY_POINTS,
     DATE_FORMAT,
 )
 
@@ -38,7 +39,13 @@ from config import (
 def _get_alert_count(entry: QueueEntry) -> int:
     """Obtiene de manera segura el número de alertas pendientes de una entrada."""
     if isinstance(entry.pending_alerts, list):
-        return len(entry.pending_alerts)
+        return len(
+            [
+                a
+                for a in entry.pending_alerts
+                if ALERT_TYPES.get(getattr(a, "alert_type", ""), {}).get("requires_review", True)
+            ]
+        )
     try:
         return int(entry.pending_alerts)
     except (TypeError, ValueError):
@@ -131,13 +138,20 @@ def calculate_priority_score(
         else:
             reasons.append("0 pts: NEWS2 basal normal (0 pts)")
 
-    # 3. Contribución por tiempo de espera (+1 punto por cada 10 minutos)
-    wait_points = round(wait_time_minutes / 10.0, 1)
+    # 3. Contribución por tiempo de espera (+1 punto por cada 10 minutos, con tope administrativo)
+    raw_wait_points = round(wait_time_minutes / 10.0, 1)
+    wait_points = min(raw_wait_points, MAX_WAIT_PRIORITY_POINTS)
     if wait_points > 0.0:
         score += wait_points
-        reasons.append(
-            f"+{wait_points:.1f} pts: Tiempo acumulado en sala de espera ({wait_time_minutes:.0f} min, +1 pto/10 min)"
-        )
+        if raw_wait_points > MAX_WAIT_PRIORITY_POINTS:
+            reasons.append(
+                f"+{wait_points:.1f} pts: Tiempo acumulado en sala de espera ({wait_time_minutes:.0f} min; "
+                f"tope administrativo de {MAX_WAIT_PRIORITY_POINTS:.0f} pts para no desplazar riesgo clínico agudo)"
+            )
+        else:
+            reasons.append(
+                f"+{wait_points:.1f} pts: Tiempo acumulado en sala de espera ({wait_time_minutes:.0f} min, +1 pto/10 min)"
+            )
 
     if not reasons:
         reasons.append("Puntaje base de ingreso sin factores de alerta adicionales")
@@ -146,7 +160,9 @@ def calculate_priority_score(
 
 
 def build_queue(
-    db_path: Optional[str] = None, include_simulated: bool = True
+    db_path: Optional[str] = None,
+    include_simulated: bool = True,
+    reference_time: Optional[str] = None,
 ) -> List[QueueEntry]:
     """Construye y ordena la cola administrativa de pacientes en espera.
 
@@ -162,6 +178,7 @@ def build_queue(
     Args:
         db_path: Ruta opcional a la base de datos SQLite.
         include_simulated: Si es True, incluye registros generados por simulación.
+        reference_time: Marca temporal opcional para cálculo consistente durante simulaciones.
 
     Returns:
         List[QueueEntry]: Lista de entradas de la cola debidamente ordenadas.
@@ -173,26 +190,35 @@ def build_queue(
         patients = get_patients_en_espera(conn, include_simulated=include_simulated)
         for patient in patients:
             latest_eval = get_latest_evaluation(conn, patient.id)
-            pending_alerts = get_alerts_for_patient(
+            all_pending_alerts = get_alerts_for_patient(
                 conn, patient.id, status_filter=ALERT_STATUS_PENDING
             )
-            wait_time = compute_wait_time(patient.arrival_at)
+            reviewable_alerts = [
+                a
+                for a in all_pending_alerts
+                if ALERT_TYPES.get(a.alert_type, {}).get("requires_review", True)
+            ]
+            wait_time = compute_wait_time(
+                patient.arrival_at,
+                reference_time=reference_time,
+                administrative_status=patient.administrative_status,
+            )
 
             # Actualizar campos calculados del paciente
             patient.wait_time_minutes = wait_time
-            patient.pending_alerts_count = len(pending_alerts)
+            patient.pending_alerts_count = len(reviewable_alerts)
             patient.last_evaluation_score = latest_eval.score if latest_eval else None
             patient.last_evaluation_at = latest_eval.evaluated_at if latest_eval else None
 
             score, reasons = calculate_priority_score(
-                patient, latest_eval, pending_alerts, wait_time
+                patient, latest_eval, reviewable_alerts, wait_time
             )
 
             entries_data.append({
                 "patient": patient,
                 "priority_score": score,
                 "reasons": reasons,
-                "pending_alerts": pending_alerts,
+                "pending_alerts": reviewable_alerts,
                 "last_evaluation": latest_eval,
                 "wait_time_minutes": wait_time,
             })
@@ -210,7 +236,7 @@ def build_queue(
         reverse=True,
     )
 
-    now_iso = datetime.now().isoformat()
+    now_iso = reference_time or datetime.now().isoformat()
     queue_entries: List[QueueEntry] = []
 
     for index, data in enumerate(entries_data, start=1):
@@ -238,7 +264,8 @@ def get_queue_summary(queue: List[QueueEntry]) -> Dict[str, Any]:
 
     Returns:
         Dict[str, Any]: Diccionario con total_patients, avg_wait_time, max_wait_time,
-                        patients_with_alerts, patients_with_high_score, last_updated.
+                        patients_with_alerts, patients_with_high_score, total_pending_alerts,
+                        y alias de compatibilidad para la interfaz.
     """
     total = len(queue)
     if total > 0:
@@ -249,6 +276,7 @@ def get_queue_summary(queue: List[QueueEntry]) -> Dict[str, Any]:
         max_wait = 0.0
 
     with_alerts = sum(1 for e in queue if _get_alert_count(e) > 0)
+    total_pending_alerts = sum(_get_alert_count(e) for e in queue)
     with_high_score = sum(
         1
         for e in queue
@@ -260,9 +288,12 @@ def get_queue_summary(queue: List[QueueEntry]) -> Dict[str, Any]:
     return {
         "total_patients": total,
         "avg_wait_time": avg_wait,
+        "avg_wait_minutes": avg_wait,
         "max_wait_time": max_wait,
         "patients_with_alerts": with_alerts,
+        "pending_alerts_count": total_pending_alerts,
         "patients_with_high_score": with_high_score,
+        "high_risk_count": with_high_score,
         "last_updated": datetime.now().isoformat(),
     }
 

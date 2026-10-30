@@ -454,8 +454,15 @@ def run_simulation(
                         eval_outcome = alert_engine.evaluate_new_measurement(
                             patient_data['id'], meas_result['measurement']
                         )
-                        alerts = eval_outcome.get('alerts', [])
-                        for alert_item in alerts:
+                        clinical_alerts = eval_outcome.get(
+                            'clinical_alerts',
+                            [
+                                a
+                                for a in eval_outcome.get('alerts', [])
+                                if a.alert_type != 'new_measurement'
+                            ],
+                        )
+                        for alert_item in clinical_alerts:
                             total_alerts += 1
                             event_alerta = SimulationEvent(
                                 id=None,
@@ -464,7 +471,7 @@ def run_simulation(
                                 event_at=current_iso,
                                 event_type='alerta',
                                 description=(
-                                    f"Alerta generada ({alert_item.alert_type}): "
+                                    f"Alerta clínica/operativa ({alert_item.alert_type}): "
                                     f"{alert_item.reason}"
                                 ),
                                 event_data=json.dumps(
@@ -496,7 +503,8 @@ def run_simulation(
                                 event_type='evaluacion',
                                 description=(
                                     f"Evaluación NEWS2 para paciente {patient_data['code']}: "
-                                    f"puntaje {latest_eval.score} (Riesgo: {latest_eval.risk_level or 'N/D'})"
+                                    f"puntaje {latest_eval.score if latest_eval.score is not None else 'Incompleto'} "
+                                    f"(Riesgo: {latest_eval.risk_level or 'Incompleto'})"
                                 ),
                                 event_data=json.dumps(
                                     {
@@ -517,7 +525,9 @@ def run_simulation(
             # Construir y registrar snapshot de la cola en este paso
             try:
                 queue_entries = build_queue(
-                    db_path=db_path, include_simulated=True
+                    db_path=db_path,
+                    include_simulated=True,
+                    reference_time=current_iso,
                 )
                 formatted_snapshot = format_queue_for_display(queue_entries)
                 queue_snapshots.append(formatted_snapshot)
@@ -623,12 +633,16 @@ def get_simulation_results(
             if patient:
                 measurements = get_measurements_for_patient(conn, pid)
                 evaluations = get_evaluations_for_patient(conn, pid)
-                alerts = get_alerts_for_patient(conn, pid)
+                all_alerts = get_alerts_for_patient(conn, pid)
+                clinical_alerts = [
+                    a for a in all_alerts if a.alert_type != 'new_measurement'
+                ]
                 patients_data.append({
                     'patient': patient,
                     'measurements': measurements,
                     'evaluations': evaluations,
-                    'alerts': alerts,
+                    'alerts': clinical_alerts,
+                    'all_alerts': all_alerts,
                 })
 
         return {

@@ -345,7 +345,8 @@ def get_glassmorphism_css() -> str:
         -webkit-backdrop-filter: blur(16px);
         border: 1px solid var(--border-glass);
         border-radius: 14px;
-        padding: 20px;
+        padding: 22px 24px;
+        margin-bottom: 18px;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         height: 100%;
@@ -354,6 +355,16 @@ def get_glassmorphism_css() -> str:
         border-color: var(--border-glass-glow);
         box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(56, 189, 248, 0.12);
         transform: translateY(-2px);
+    }
+
+    /* Espaciado general de bloques para reducir densidad visual */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 3rem !important;
+        max-width: 1440px !important;
+    }
+    div[data-testid="stVerticalBlock"] > div {
+        margin-bottom: 0.35rem;
     }
 
     /* Tarjetas de Acceso Rápido / Shortcuts */
@@ -537,28 +548,28 @@ def get_glassmorphism_css() -> str:
     """
 
 
-def render_top_header() -> None:
+def render_top_header(pending_alerts_count: int = 0) -> None:
     """Renderiza la cabecera superior moderna con título y perfil de usuario activo."""
+    badge_color = "#ef4444" if pending_alerts_count > 0 else "#10b981"
     st.markdown(
         f"""
         <div class="top-nav-header">
             <div class="header-left">
                 <div class="header-left-title">
-                    <span>🏥 {APP_NAME} - Sistema de Priorización Dinámica en Urgencias</span>
+                    <span>🏥 {APP_NAME} — Sistema de Priorización Dinámica en Urgencias</span>
                 </div>
                 <div class="header-left-subtitle">
-                    Equipo de Desarrollo: <strong style="color:#38bdf8;">{TEAM_NAME}</strong>
+                    Equipo de Desarrollo: <strong style="color:#38bdf8;">{TEAM_NAME}</strong> &bull; Entorno Académico Simulado
                 </div>
             </div>
             <div class="header-right-user">
                 <div class="user-profile-badge">
                     <img src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=100&q=80" class="user-avatar-img" alt="Avatar Dr. Silva" />
-                    <span class="user-name-text">Dr. A. Silva</span>
-                    <span style="font-size:0.7rem; color:#94a3b8;">▼</span>
+                    <span class="user-name-text">Dr. A. Silva (Simulación)</span>
                 </div>
-                <div class="header-pill-btn">Fork</div>
-                <div class="notification-bell">
-                    🔔<span class="bell-badge-pill">1</span>
+                <div class="header-pill-btn">Prototipo v{APP_VERSION}</div>
+                <div class="notification-bell" title="Alertas clínicas u operativas pendientes">
+                    🔔<span class="bell-badge-pill" style="background:{badge_color};">{pending_alerts_count}</span>
                 </div>
             </div>
         </div>
@@ -620,28 +631,25 @@ def apply_dark_glass_theme(
 
 
 def create_home_network_chart() -> go.Figure:
-    """Genera el gráfico interactivo de red fisiológica y triaje con estética Dark Glass."""
+    """Genera el esquema conceptual ilustrativo de la arquitectura NEWS2 y priorización."""
     nodes = [
-        {"id": "NEWS2", "label": "Motor NEWS2", "x": 0.0, "y": 0.0, "color": "#f59e0b", "size": 22, "type": "Hub Central"},
-        {"id": "SpO2", "label": "SpO2 (98%)", "x": -0.6, "y": 0.55, "color": "#06b6d4", "size": 15, "type": "Signo Vital"},
-        {"id": "FC", "label": "FC (76 lpm)", "x": -0.75, "y": 0.05, "color": "#06b6d4", "size": 15, "type": "Signo Vital"},
-        {"id": "FR", "label": "FR (16 rpm)", "x": -0.5, "y": -0.55, "color": "#06b6d4", "size": 15, "type": "Signo Vital"},
-        {"id": "TA", "label": "TA (120/80)", "x": 0.1, "y": -0.65, "color": "#06b6d4", "size": 15, "type": "Signo Vital"},
-        {"id": "Temp", "label": "Temp (36.8°C)", "x": 0.55, "y": -0.45, "color": "#06b6d4", "size": 15, "type": "Signo Vital"},
-        {"id": "AVPU", "label": "AVPU (Alerta)", "x": 0.2, "y": 0.65, "color": "#06b6d4", "size": 15, "type": "Signo Vital"},
-        {"id": "Triaje1", "label": "Triaje I", "x": 0.72, "y": 0.5, "color": "#ef4444", "size": 17, "type": "Reanimación"},
-        {"id": "Triaje2", "label": "Triaje II", "x": 0.82, "y": 0.12, "color": "#f97316", "size": 17, "type": "Emergencia"},
-        {"id": "Triaje3", "label": "Triaje III", "x": 0.72, "y": -0.22, "color": "#eab308", "size": 17, "type": "Urgencia"},
-        {"id": "Prioridad", "label": "Prioridad Cola", "x": 0.45, "y": 0.05, "color": "#8b5cf6", "size": 19, "type": "Cola Dinámica"},
+        {"id": "NEWS2", "label": "Motor NEWS2", "x": 0.0, "y": 0.0, "color": "#f59e0b", "size": 22, "type": "Cálculo Fisiológico"},
+        {"id": "SpO2", "label": "SpO2 (%)", "x": -0.6, "y": 0.55, "color": "#06b6d4", "size": 15, "type": "Parámetro Vital"},
+        {"id": "FC", "label": "FC (lpm)", "x": -0.75, "y": 0.05, "color": "#06b6d4", "size": 15, "type": "Parámetro Vital"},
+        {"id": "FR", "label": "FR (rpm)", "x": -0.5, "y": -0.55, "color": "#06b6d4", "size": 15, "type": "Parámetro Vital"},
+        {"id": "TA", "label": "PAS (mmHg)", "x": 0.1, "y": -0.65, "color": "#06b6d4", "size": 15, "type": "Parámetro Vital"},
+        {"id": "Temp", "label": "Temp (°C)", "x": 0.55, "y": -0.45, "color": "#06b6d4", "size": 15, "type": "Parámetro Vital"},
+        {"id": "AVPU", "label": "AVPU / O2", "x": 0.2, "y": 0.65, "color": "#06b6d4", "size": 15, "type": "Parámetro Vital"},
+        {"id": "Triaje", "label": "Triaje Inicial (I-V)", "x": 0.75, "y": 0.45, "color": "#ef4444", "size": 17, "type": "Clasificación en Admisión"},
+        {"id": "Alertas", "label": "Motor de Alertas", "x": 0.78, "y": -0.15, "color": "#f97316", "size": 17, "type": "Reglas Reactivas"},
+        {"id": "Prioridad", "label": "Cola Administrativa", "x": 0.45, "y": 0.08, "color": "#8b5cf6", "size": 19, "type": "Ordenamiento Explicable"},
     ]
 
     edges = [
         ("SpO2", "NEWS2"), ("FC", "NEWS2"), ("FR", "NEWS2"), ("TA", "NEWS2"),
         ("Temp", "NEWS2"), ("AVPU", "NEWS2"),
-        ("NEWS2", "Prioridad"),
-        ("NEWS2", "Triaje1"), ("NEWS2", "Triaje2"), ("NEWS2", "Triaje3"),
-        ("Triaje1", "Prioridad"), ("Triaje2", "Prioridad"), ("Triaje3", "Prioridad"),
-        ("SpO2", "FC"), ("FR", "SpO2"), ("Temp", "TA"), ("AVPU", "SpO2"),
+        ("NEWS2", "Prioridad"), ("NEWS2", "Alertas"),
+        ("Triaje", "Prioridad"), ("Alertas", "Prioridad"),
     ]
 
     node_dict = {n["id"]: n for n in nodes}
@@ -664,7 +672,7 @@ def create_home_network_chart() -> go.Figure:
     node_y = [n["y"] for n in nodes]
     node_color = [n["color"] for n in nodes]
     node_size = [n["size"] for n in nodes]
-    node_text = [f"<b>{n['label']}</b><br>Nivel: {n['type']}" for n in nodes]
+    node_text = [f"<b>{n['label']}</b><br>Componente: {n['type']}" for n in nodes]
 
     node_trace = go.Scatter(
         x=node_x,
@@ -683,7 +691,11 @@ def create_home_network_chart() -> go.Figure:
     )
 
     fig = go.Figure(data=[edge_trace, node_trace])
-    apply_dark_glass_theme(fig, height=330, title="Red Fisiológica y Dinámica de Triaje")
+    apply_dark_glass_theme(
+        fig,
+        height=310,
+        title="Esquema Conceptual Ilustrativo: Flujo NEWS2 y Priorización",
+    )
     fig.update_layout(
         showlegend=False,
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
@@ -693,21 +705,37 @@ def create_home_network_chart() -> go.Figure:
     return fig
 
 
-def create_home_triage_bar_chart() -> go.Figure:
-    """Genera el gráfico de barras apiladas de priorización en tiempo real por niveles de triaje."""
-    categories = ['I', 'II', 'III', 'IV', 'V']
-    en_espera = [2, 7, 11, 15, 8]
-    en_atencion = [1, 4, 5, 3, 2]
-    alertas_activas = [2, 3, 2, 0, 0]
+def create_home_triage_bar_chart(patients: Optional[List[Patient]] = None) -> go.Figure:
+    """Genera el gráfico de distribución actual de pacientes registrados por nivel de triaje."""
+    categories = ['I', 'II', 'III', 'IV', 'V', 'S/C']
+    level_keys = [1, 2, 3, 4, 5, None]
+    pts = patients or []
+
+    en_espera = []
+    en_atencion = []
+    con_alertas = []
+
+    for lvl in level_keys:
+        matching = [p for p in pts if p.triage_level == lvl]
+        en_espera.append(sum(1 for p in matching if p.administrative_status == 'en_espera'))
+        en_atencion.append(sum(1 for p in matching if p.administrative_status == 'en_atencion'))
+        con_alertas.append(
+            sum(
+                1
+                for p in matching
+                if p.administrative_status in ('en_espera', 'en_atencion')
+                and (p.pending_alerts_count or 0) > 0
+            )
+        )
 
     fig = go.Figure(data=[
         go.Bar(name='En Espera', x=categories, y=en_espera, marker_color='#06b6d4'),
         go.Bar(name='En Atención', x=categories, y=en_atencion, marker_color='#f59e0b'),
-        go.Bar(name='Alertas Críticas', x=categories, y=alertas_activas, marker_color='#ef4444'),
+        go.Bar(name='Con Alertas', x=categories, y=con_alertas, marker_color='#ef4444'),
     ])
 
     fig.update_layout(
-        barmode='stack',
+        barmode='group',
         legend=dict(
             orientation="h",
             yanchor="bottom",
@@ -717,11 +745,13 @@ def create_home_triage_bar_chart() -> go.Figure:
             font=dict(size=10, color="#94a3b8"),
         ),
     )
-    apply_dark_glass_theme(fig, height=190, title="Priorización en Tiempo Real")
+    apply_dark_glass_theme(
+        fig, height=195, title="Pacientes Activos por Triaje (Base de Datos Local)"
+    )
     fig.update_layout(
-        xaxis_title="Nivel Triaje",
+        xaxis_title="Nivel Triaje (S/C = Sin clasificar)",
         yaxis_title="Pacientes",
-        margin=dict(l=25, r=20, t=35, b=25),
+        margin=dict(l=25, r=20, t=38, b=25),
     )
     return fig
 
@@ -731,12 +761,16 @@ def render_disclaimer() -> None:
     st.warning(DISCLAIMER_TEXT, icon='⚠️')
 
 
-def render_home_page() -> None:
-    """Renderiza la página principal con diseño Dark Glassmorphism idéntico al mockup."""
-    # Contenedor Glass Principal (Hero Container con 3 columnas)
+def render_home_page(patients: Optional[List[Patient]] = None) -> None:
+    """Renderiza la página principal con resumen del prototipo, métricas reales y accesos claros."""
+    pts = patients or []
+    total_active = sum(1 for p in pts if p.administrative_status in ('en_espera', 'en_atencion'))
+    manual_count = sum(1 for p in pts if not p.is_simulated)
+    sim_count = sum(1 for p in pts if p.is_simulated)
+
     st.markdown('<div class="glass-hero-container">', unsafe_allow_html=True)
 
-    col_left, col_center, col_right = st.columns([1.5, 1.4, 1.1])
+    col_left, col_center, col_right = st.columns([1.45, 1.35, 1.2])
 
     with col_left:
         st.markdown(
@@ -744,21 +778,19 @@ def render_home_page() -> None:
             <h3 style="font-weight:700; color:#f8fafc; margin-top:0; margin-bottom:12px;">
                 Prototipo Académico de Priorización Dinámica en Urgencias
             </h3>
-            <p style="color:#94a3b8; font-size:0.9rem; line-height:1.55; margin-bottom:16px;">
-                Este sistema es un <strong>prototipo de investigación y desarrollo académico</strong> que demuestra cómo 
-                una aplicación analítica moderna puede apoyar la gestión administrativa y la priorización transparente de pacientes 
-                en la cola de espera de un servicio de urgencias simulado.
+            <p style="color:#94a3b8; font-size:0.9rem; line-height:1.6; margin-bottom:16px;">
+                Este sistema es un <strong>prototipo de investigación y docencia académica</strong> que demuestra cómo 
+                estructurar el registro de pacientes ficticios, el cálculo de deterioro fisiológico <strong>NEWS2</strong> 
+                y una cola administrativa explicable sin sustituir el criterio médico ni el triaje clínico presencial.
             </p>
             <div style="font-weight:600; color:#cbd5e1; margin-bottom:10px; font-size:0.92rem;">
-                Funcionalidades Principales:
+                Flujo de Trabajo Integrado:
             </div>
-            <ul style="list-style:none; padding-left:0; margin:0; font-size:0.86rem; color:#94a3b8; line-height:1.65;">
-                <li style="margin-bottom:6px;"><span style="color:#38bdf8;">📋</span> <strong style="color:#e2e8f0;">Registro de Pacientes Ficticios:</strong> Ingreso ágil y trazabilidad con códigos únicos.</li>
-                <li style="margin-bottom:6px;"><span style="color:#10b981;">📊</span> <strong style="color:#e2e8f0;">Monitoreo de Signos Vitales:</strong> Captura periódica de parámetros fisiológicos.</li>
-                <li style="margin-bottom:6px;"><span style="color:#f59e0b;">⚡</span> <strong style="color:#e2e8f0;">Evaluación Estandarizada NEWS2:</strong> Cálculo riguroso según la especificación del Royal College of Physicians (2017).</li>
-                <li style="margin-bottom:6px;"><span style="color:#ef4444;">🔔</span> <strong style="color:#e2e8f0;">Motor de Alertas Configurable:</strong> Detección de deterioro fisiológico, datos incompletos y tiempos prolongados.</li>
-                <li style="margin-bottom:6px;"><span style="color:#a855f7;">📈</span> <strong style="color:#e2e8f0;">Cola Administrativa Dinámica:</strong> Ordenamiento explicable con desglose de factores de prioridad.</li>
-                <li style="margin-bottom:6px;"><span style="color:#06b6d4;">🔬</span> <strong style="color:#e2e8f0;">Simulación de Escenarios:</strong> Pacientes sintéticos con perfiles clínicos y evolución temporal.</li>
+            <ul style="list-style:none; padding-left:0; margin:0; font-size:0.86rem; color:#94a3b8; line-height:1.7;">
+                <li style="margin-bottom:6px;"><span style="color:#38bdf8;">👥</span> <strong style="color:#e2e8f0;">1. Pacientes:</strong> Admisión, listado filtrable y consulta de ficha clínica e historial.</li>
+                <li style="margin-bottom:6px;"><span style="color:#10b981;">🩺</span> <strong style="color:#e2e8f0;">2. Atención:</strong> Captura de signos vitales, evaluación NEWS2 (RCP 2017) y gestión de alertas.</li>
+                <li style="margin-bottom:6px;"><span style="color:#a855f7;">📈</span> <strong style="color:#e2e8f0;">3. Cola de Atención:</strong> Ordenamiento administrativo explicable según triaje, NEWS2, alertas y espera.</li>
+                <li style="margin-bottom:6px;"><span style="color:#06b6d4;">🔬</span> <strong style="color:#e2e8f0;">4. Simulación:</strong> Escenarios sintéticos reproducibles claramente diferenciados de registros manuales.</li>
             </ul>
             """,
             unsafe_allow_html=True,
@@ -769,9 +801,12 @@ def render_home_page() -> None:
         st.plotly_chart(
             fig_network, use_container_width=True, config={'displayModeBar': False}
         )
+        st.caption(
+            "📌 *Diagrama estático demostrativo de la arquitectura conceptual del prototipo (no representa telemetría en vivo).*"
+        )
 
     with col_right:
-        fig_bar = create_home_triage_bar_chart()
+        fig_bar = create_home_triage_bar_chart(pts)
         st.plotly_chart(
             fig_bar, use_container_width=True, config={'displayModeBar': False}
         )
@@ -780,13 +815,13 @@ def render_home_page() -> None:
             f"""
             <div class="glass-card" style="padding:14px; margin-top:8px;">
                 <div style="font-weight:700; color:#38bdf8; font-size:0.88rem; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
-                    ℹ️ Ficha Técnica del Prototipo
+                    ℹ️ Estado Actual de la Base de Datos Local
                 </div>
-                <div style="font-size:0.8rem; color:#94a3b8; line-height:1.5;">
-                    <div>• <strong>Versión:</strong> <code style="color:#38bdf8;">{APP_VERSION}</code></div>
-                    <div>• <strong>Entorno:</strong> Simulación Controlada</div>
-                    <div>• <strong>Persistencia:</strong> SQLite Transaccional</div>
-                    <div>• <strong>Escala de Deterioro:</strong> NEWS2 (2017)</div>
+                <div style="font-size:0.8rem; color:#94a3b8; line-height:1.55;">
+                    <div>• <strong>Registros totales:</strong> <code style="color:#f8fafc;">{len(pts)}</code> ({manual_count} manuales / {sim_count} simulados)</div>
+                    <div>• <strong>En espera o atención activa:</strong> <code style="color:#38bdf8;">{total_active}</code></div>
+                    <div>• <strong>Escala fisiológica:</strong> NEWS2 (RCP, 2017)</div>
+                    <div>• <strong>Versión del prototipo:</strong> <code style="color:#38bdf8;">{APP_VERSION}</code></div>
                 </div>
             </div>
             """,
@@ -795,7 +830,7 @@ def render_home_page() -> None:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Fila de 3 Tarjetas de Acceso Rápido / Shortcuts
+    # Fila de 3 Tarjetas de Acceso Rápido a las tareas principales (en español)
     sc1, sc2, sc3 = st.columns(3)
 
     with sc1:
@@ -806,14 +841,14 @@ def render_home_page() -> None:
                     <div class="action-card-header">
                         <div class="action-icon-wrap">👥</div>
                         <div>
-                            <div class="action-title">Patient Registration</div>
-                            <div style="font-size:0.78rem; color:#94a3b8;">Admisión y Gestión Clínica</div>
+                            <div class="action-title">Gestión y Admisión de Pacientes</div>
+                            <div style="font-size:0.78rem; color:#94a3b8;">Listado, Filtros y Nuevo Ingreso</div>
                         </div>
                     </div>
                     <ul class="action-list">
-                        <li>Registro rápido de pacientes ficticios</li>
-                        <li>Asignación de código y tiempo de espera</li>
-                        <li>Captura de síntomas y diagnóstico inicial</li>
+                        <li>Consulta del padrón de pacientes y su estado</li>
+                        <li>Admisión de nuevos pacientes ficticios</li>
+                        <li>Verificación explícita de triaje e historial</li>
                     </ul>
                 </div>
             </div>
@@ -821,11 +856,11 @@ def render_home_page() -> None:
             unsafe_allow_html=True,
         )
         if st.button(
-            "➕ Abrir Registro de Pacientes",
-            key="btn_quick_register",
+            "👥 Ir a Pacientes y Admisión",
+            key="btn_quick_patients",
             use_container_width=True,
         ):
-            st.session_state["current_page"] = "➕ Registrar Paciente"
+            st.session_state["current_page"] = "👥 Pacientes"
             st.rerun()
 
     with sc2:
@@ -836,14 +871,14 @@ def render_home_page() -> None:
                     <div class="action-card-header">
                         <div class="action-icon-wrap">🩺</div>
                         <div>
-                            <div class="action-title">Vital Signs Monitor</div>
-                            <div style="font-size:0.78rem; color:#94a3b8;">Monitoreo Fisiológico Continuo</div>
+                            <div class="action-title">Atención Clínica y Evaluación NEWS2</div>
+                            <div style="font-size:0.78rem; color:#94a3b8;">Signos Vitales, Desglose y Alertas</div>
                         </div>
                     </div>
                     <ul class="action-list">
-                        <li>Registro de 7 signos vitales estándar</li>
-                        <li>Gráficos multivariables de tendencias</li>
-                        <li>Histórico temporal por paciente</li>
+                        <li>Captura de los 7 parámetros fisiológicos</li>
+                        <li>Cálculo y desglose inmediato de NEWS2</li>
+                        <li>Revisión diferenciada de alertas y cambios</li>
                     </ul>
                 </div>
             </div>
@@ -851,11 +886,11 @@ def render_home_page() -> None:
             unsafe_allow_html=True,
         )
         if st.button(
-            "📊 Abrir Registro de Medición",
-            key="btn_quick_vitals",
+            "🩺 Ir a Atención y Evaluación NEWS2",
+            key="btn_quick_care",
             use_container_width=True,
         ):
-            st.session_state["current_page"] = "📊 Registrar Medición"
+            st.session_state["current_page"] = "🩺 Atención"
             st.rerun()
 
     with sc3:
@@ -864,16 +899,16 @@ def render_home_page() -> None:
             <div class="glass-action-card">
                 <div>
                     <div class="action-card-header">
-                        <div class="action-icon-wrap">⚡</div>
+                        <div class="action-icon-wrap">📈</div>
                         <div>
-                            <div class="action-title">New EWS2 Evaluation</div>
-                            <div style="font-size:0.78rem; color:#94a3b8;">Estratificación y Alertas</div>
+                            <div class="action-title">Cola de Atención y Simulación</div>
+                            <div style="font-size:0.78rem; color:#94a3b8;">Priorización Explicable y Escenarios</div>
                         </div>
                     </div>
                     <ul class="action-list">
-                        <li>Cálculo automatizado de puntaje NEWS2</li>
-                        <li>Estratificación de riesgo clínico (RCP)</li>
-                        <li>Reconocimiento y gestión de alertas</li>
+                        <li>Ordenamiento administrativo de pacientes en espera</li>
+                        <li>Explicación transparente de factores de prioridad</li>
+                        <li>Simulador académico de perfiles clínicos</li>
                     </ul>
                 </div>
             </div>
@@ -881,11 +916,11 @@ def render_home_page() -> None:
             unsafe_allow_html=True,
         )
         if st.button(
-            "⚡ Ir a Evaluaciones y Alertas",
-            key="btn_quick_evals",
+            "📈 Ir a Cola de Atención",
+            key="btn_quick_queue",
             use_container_width=True,
         ):
-            st.session_state["current_page"] = "⚡ Evaluación y Alertas"
+            st.session_state["current_page"] = "📈 Cola de Atención"
             st.rerun()
 
     # Banner de Aviso Legal y Académico en estilo Glass Amber
@@ -906,7 +941,7 @@ def render_home_page() -> None:
         f"""
         <div class="glass-footer">
             <div>
-                <a href="#" style="color:#94a3b8; text-decoration:none; font-weight:500;">⚖️ Aviso Ético y Regulatorio</a>
+                <span style="color:#94a3b8; font-weight:500;">⚖️ Prototipo Académico sin validez diagnóstica ni asistencial real</span>
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
                 <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#38bdf8;"></span>
@@ -920,7 +955,7 @@ def render_home_page() -> None:
 
 
 def render_patient_table(patients: List[Patient]) -> None:
-    """Renderiza la tabla de pacientes con estado, tiempo de espera, alertas y último NEWS2.
+    """Renderiza la tabla de pacientes con estado, tiempo de espera, alertas clínicas y último NEWS2.
 
     Args:
         patients: Lista de objetos Patient a mostrar.
@@ -932,11 +967,13 @@ def render_patient_table(patients: List[Patient]) -> None:
     total_patients = len(patients)
     en_espera = sum(1 for p in patients if p.administrative_status == 'en_espera')
     con_alertas = sum(1 for p in patients if (p.pending_alerts_count or 0) > 0)
+    simulados = sum(1 for p in patients if p.is_simulated)
 
-    m1, m2, m3 = st.columns(3)
-    m1.metric('Total Pacientes', total_patients)
-    m2.metric('En Espera', en_espera)
-    m3.metric('Con Alertas Activas', con_alertas)
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric('Pacientes Listados', total_patients)
+    m2.metric('En Sala de Espera', en_espera)
+    m3.metric('Con Alertas Clínicas', con_alertas)
+    m4.metric('Origen Simulado', simulados)
 
     table_data = []
     for p in patients:
@@ -957,79 +994,114 @@ def render_patient_table(patients: List[Patient]) -> None:
         triage_display = (
             TRIAGE_LEVELS.get(p.triage_level, {}).get('short_label', f'Nivel {p.triage_level}')
             if p.triage_level
-            else 'Sin clasificar'
+            else 'Pendiente de clasificar'
         )
         patient_name = p.full_name or p.name or 'N/D'
+        wait_display = (
+            'Finalizada (0m)'
+            if p.administrative_status in ('atendido', 'alta')
+            else format_wait_time(p.wait_time_minutes)
+        )
 
         table_data.append({
             'Código': p.patient_code,
             'Nombre': patient_name,
-            'Triaje Clínico': triage_display,
+            'Triaje Registrado': triage_display,
             'Estado': status_display,
-            'Hora Llegada': format_datetime(p.arrival_at),
-            'Tiempo Espera': format_wait_time(p.wait_time_minutes),
-            'Alertas': alerts_display,
+            'Tiempo Espera': wait_display,
             'Último NEWS2': score_display,
-            'Síntomas': p.symptoms or 'No descritos',
-            'Diagnóstico Inicial': p.initial_diagnosis or 'Pendiente',
-            'Tipo': 'Simulado' if p.is_simulated else 'Manual',
+            'Alertas Clínicas': alerts_display,
+            'Origen': '🔬 Simulado' if p.is_simulated else '👤 Manual',
         })
 
     df = pd.DataFrame(table_data)
     st.dataframe(df, use_container_width=True, hide_index=True)
 
 
-def render_patient_card(patient: Patient) -> None:
+def render_patient_card(
+    patient: Patient, latest_measurement: Optional[Measurement] = None
+) -> None:
     """Muestra una tarjeta detallada con el resumen clínico y administrativo de un paciente.
 
     Args:
         patient: Objeto Patient a detallar.
+        latest_measurement: Última medición registrada del paciente (opcional).
     """
     status_label = ADMIN_STATUS_LABELS.get(
         patient.administrative_status, patient.administrative_status
     )
     emoji = get_status_emoji(patient.administrative_status)
-    sim_tag = ' *(Simulado)*' if patient.is_simulated else ' *(Manual)*'
+    sim_tag = ' *(Paciente Simulado)*' if patient.is_simulated else ' *(Ingreso Manual)*'
     patient_name = patient.full_name or patient.name or 'Paciente Ficticio'
 
     triage_info = TRIAGE_LEVELS.get(patient.triage_level or 0, {})
-    triage_short = triage_info.get('short_label', f'Nivel {patient.triage_level}' if patient.triage_level else 'Sin Triaje')
-    triage_color = triage_info.get('color', '#6c757d')
+    triage_short = (
+        triage_info.get('short_label', f'Nivel {patient.triage_level}')
+        if patient.triage_level
+        else 'Pendiente de verificación / Sin clasificar'
+    )
+    triage_color = triage_info.get('color', '#64748b')
 
     st.markdown(
         f"### {emoji} **{patient_name}** (`{patient.patient_code}`){sim_tag} "
-        f"<span style='background-color:{triage_color}; color:white; padding:3px 10px; border-radius:12px; font-size:0.85em; margin-left:10px;'>{triage_short}</span>",
+        f"<span style='background-color:{triage_color}; color:white; padding:4px 12px; border-radius:12px; font-size:0.82em; margin-left:10px;'>{triage_short}</span>",
         unsafe_allow_html=True,
+    )
+
+    wait_val = (
+        'Finalizada'
+        if patient.administrative_status in ('atendido', 'alta')
+        else format_wait_time(patient.wait_time_minutes)
     )
 
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         st.metric('Estado Administrativo', status_label)
     with col2:
-        st.metric('Triaje Clínico', triage_short)
+        st.metric(
+            'Triaje Registrado',
+            triage_info.get('short_label', 'Sin clasificar') if patient.triage_level else 'Sin clasificar',
+        )
     with col3:
-        st.metric('Tiempo de Espera', format_wait_time(patient.wait_time_minutes))
+        st.metric('Tiempo de Espera', wait_val)
     with col4:
         alerts_val = patient.pending_alerts_count or 0
         st.metric(
-            'Alertas Activas',
+            'Alertas Clínicas Activas',
             f'🚨 {alerts_val}' if alerts_val > 0 else '✅ 0',
         )
     with col5:
         score_val = (
             str(patient.last_evaluation_score)
             if patient.last_evaluation_score is not None
-            else 'N/D'
+            else 'Pendiente'
         )
-        st.metric('Puntaje NEWS2', score_val)
+        st.metric('Último NEWS2', score_val)
+
+    # Resumen de última medición si está disponible
+    latest_meas_html = ""
+    if latest_measurement is not None:
+        o2_str = "Sí" if latest_measurement.supplemental_oxygen else "No"
+        latest_meas_html = (
+            f"<p style='margin:6px 0 0 0; font-size:0.88rem; color:#cbd5e1;'>"
+            f"<strong>📊 Última Medición ({format_datetime(latest_measurement.recorded_at)}):</strong> "
+            f"FR: <code>{latest_measurement.respiratory_rate if latest_measurement.respiratory_rate is not None else 'N/D'} rpm</code> &bull; "
+            f"SpO2: <code>{latest_measurement.oxygen_saturation if latest_measurement.oxygen_saturation is not None else 'N/D'}%</code> (O2: {o2_str}) &bull; "
+            f"PAS: <code>{latest_measurement.systolic_blood_pressure if latest_measurement.systolic_blood_pressure is not None else 'N/D'} mmHg</code> &bull; "
+            f"FC: <code>{latest_measurement.heart_rate if latest_measurement.heart_rate is not None else 'N/D'} lpm</code> &bull; "
+            f"Temp: <code>{latest_measurement.temperature if latest_measurement.temperature is not None else 'N/D'} °C</code> &bull; "
+            f"AVPU: <code>{latest_measurement.consciousness_status or 'N/D'}</code>"
+            f"</p>"
+        )
 
     # Bloque de información clínica descriptiva
     with st.container():
         st.markdown(
             f"""
-            <div style="background-color:rgba(28, 131, 225, 0.08); border-left: 4px solid #1c83e1; padding: 10px 14px; border-radius: 4px; margin: 8px 0;">
+            <div style="background-color:rgba(28, 131, 225, 0.08); border-left: 4px solid #38bdf8; padding: 12px 16px; border-radius: 6px; margin: 12px 0;">
                 <p style="margin:0 0 6px 0;"><strong>🩺 Síntomas Reportados:</strong> {patient.symptoms or '<em>Sin síntomas descritos al ingreso</em>'}</p>
                 <p style="margin:0;"><strong>📋 Diagnóstico Inicial / Sospecha:</strong> {patient.initial_diagnosis or '<em>Pendiente de valoración clínica</em>'}</p>
+                {latest_meas_html}
             </div>
             """,
             unsafe_allow_html=True,
@@ -1037,7 +1109,7 @@ def render_patient_card(patient: Patient) -> None:
 
     st.caption(
         f'Hora de Ingreso: {format_datetime(patient.arrival_at)} | '
-        f'Última Evaluación: {format_datetime(patient.last_evaluation_at)}'
+        f'Última Evaluación NEWS2: {format_datetime(patient.last_evaluation_at)}'
     )
 
 
@@ -1347,32 +1419,31 @@ def render_vitals_chart(measurements: List[Measurement]) -> None:
 
 
 def render_evaluation_result(evaluation: Evaluation) -> None:
-    """Muestra el resultado detallado de una evaluación NEWS2, con desglose de parámetros y nivel de riesgo.
+    """Muestra el resultado detallado de una evaluación NEWS2: primero puntuación y desglose, luego explicación.
 
     Args:
         evaluation: Objeto Evaluation a presentar.
     """
     risk_info = NEWS2_RISK_LEVELS.get(evaluation.risk_level or '', {})
     risk_label = risk_info.get(
-        'label', evaluation.risk_level or 'No determinado'
+        'label', evaluation.risk_level or 'Evaluación incompleta'
     )
     clinical_rec = risk_info.get('description', '')
 
     c1, c2, c3 = st.columns(3)
-    c1.metric('Puntaje Total NEWS2', evaluation.score)
-    c2.metric('Nivel de Riesgo Clínico', risk_label)
-    comp_label = (
-        'Completo'
-        if evaluation.completeness_status == 'completo'
-        else 'Datos Parciales'
+    c1.metric(
+        'Puntaje Agregado NEWS2',
+        str(evaluation.score) if evaluation.score is not None else 'Incompleto',
     )
-    c3.metric('Estado de Medición', comp_label)
+    c2.metric('Estratificación de Riesgo', risk_label)
+    comp_label = (
+        'Completo (7/7 parámetros)'
+        if evaluation.completeness_status == 'completo'
+        else 'Datos Parciales / Incompleto'
+    )
+    c3.metric('Completitud de Medición', comp_label)
 
-    st.markdown(f'**Explicación Clínica:** {evaluation.explanation}')
-    if clinical_rec:
-        st.info(f'**Respuesta Clínica Estándar:** {clinical_rec}', icon='ℹ️')
-
-    # Desglose de puntajes por parámetro si están disponibles
+    # 1. Mostrar desglose de puntajes por parámetro
     param_scores = evaluation.parameter_scores
     if param_scores:
         if isinstance(param_scores, str):
@@ -1382,7 +1453,7 @@ def render_evaluation_result(evaluation: Evaluation) -> None:
                 param_scores = {}
 
         if isinstance(param_scores, dict) and param_scores:
-            st.markdown('##### Desglose de Parámetros NEWS2')
+            st.markdown('##### Desglose de Puntuación por Parámetro Fisiológico')
             labels_map = {
                 'respiratory_rate': 'Frecuencia Respiratoria',
                 'oxygen_saturation': 'Saturación SpO2',
@@ -1396,10 +1467,21 @@ def render_evaluation_result(evaluation: Evaluation) -> None:
             for k, pts in param_scores.items():
                 breakdown_list.append({
                     'Parámetro Fisiológico': labels_map.get(k, k),
-                    'Puntos NEWS2': pts,
+                    'Puntos NEWS2 (0 a 3)': pts,
+                    'Estado del Parámetro': (
+                        '🔴 Gatillo extremo (3 pts)'
+                        if pts == 3
+                        else ('🟠 Alteración moderada (2 pts)' if pts == 2 else ('🟡 Desviación leve (1 pto)' if pts == 1 else '🟢 Rango normal (0 pts)'))
+                    ),
                 })
             df_breakdown = pd.DataFrame(breakdown_list)
             st.dataframe(df_breakdown, use_container_width=True, hide_index=True)
+
+    # 2. Explicar el resultado y la respuesta recomendada
+    st.markdown('##### Explicación del Resultado Clínico')
+    st.markdown(f'**Síntesis de Evaluación:** {evaluation.explanation}')
+    if clinical_rec:
+        st.info(f'**Orientación según Protocolo RCP NEWS2:** {clinical_rec}', icon='ℹ️')
 
 
 def render_evaluation_history(evaluations: List[Evaluation]) -> None:
@@ -1418,9 +1500,9 @@ def render_evaluation_history(evaluations: List[Evaluation]) -> None:
     chart_df = pd.DataFrame([
         {
             'Fecha / Hora': format_datetime(e.evaluated_at),
-            'Puntaje NEWS2': e.score,
+            'Puntaje NEWS2': e.score if e.score is not None else 0,
             'Riesgo': NEWS2_RISK_LEVELS.get(e.risk_level or '', {}).get(
-                'label', e.risk_level or 'N/D'
+                'label', e.risk_level or 'Incompleto'
             ),
         }
         for e in sorted_evals
@@ -1434,18 +1516,18 @@ def render_evaluation_history(evaluations: List[Evaluation]) -> None:
         title='Evolución Temporal de la Puntuación NEWS2',
         color_discrete_sequence=['#38bdf8'],
     )
-    apply_dark_glass_theme(fig, height=320, title='Evolución Temporal de la Puntuación NEWS2')
+    apply_dark_glass_theme(fig, height=300, title='Evolución Temporal de la Puntuación NEWS2')
     st.plotly_chart(fig, use_container_width=True)
 
     # Tabla histórica
     table_rows = []
     for e in reversed(sorted_evals):
         risk_name = NEWS2_RISK_LEVELS.get(e.risk_level or '', {}).get(
-            'label', e.risk_level or 'N/D'
+            'label', e.risk_level or 'Incompleto'
         )
         table_rows.append({
             'Fecha / Hora': format_datetime(e.evaluated_at),
-            'Puntaje': e.score,
+            'Puntaje': e.score if e.score is not None else 'Incompleto',
             'Nivel de Riesgo': risk_name,
             'Completitud': e.completeness_status,
             'Detalle': e.explanation,
@@ -1457,39 +1539,58 @@ def render_evaluation_history(evaluations: List[Evaluation]) -> None:
 def render_alert_panel(
     alerts: List[Alert], on_acknowledge: Optional[Callable[[int], bool]] = None
 ) -> None:
-    """Muestra el panel de alertas operativas con secciones pendientes y reconocidas.
+    """Muestra el panel de alertas diferenciando riesgo elevado, cambios fisiológicos y avisos informativos.
 
     Args:
         alerts: Lista de objetos Alert.
         on_acknowledge: Función de retrollamada para reconocer alertas (recibe alert_id).
     """
     if not alerts:
-        st.success('No existen alertas generadas en el sistema.')
+        st.success('No existen alertas ni notificaciones registradas para este contexto.')
         return
 
-    pending = [a for a in alerts if a.status == ALERT_STATUS_PENDING]
-    acknowledged = [a for a in alerts if a.status != ALERT_STATUS_PENDING]
+    review_alerts = [
+        a for a in alerts if ALERT_TYPES.get(a.alert_type, {}).get('requires_review', True)
+    ]
+    info_notifications = [
+        a for a in alerts if not ALERT_TYPES.get(a.alert_type, {}).get('requires_review', True)
+    ]
 
-    tab_pending, tab_ack = st.tabs([
-        f'🚨 Pendientes ({len(pending)})',
-        f'✅ Reconocidas ({len(acknowledged)})',
+    pending_review = [a for a in review_alerts if a.status == ALERT_STATUS_PENDING]
+    ack_review = [a for a in review_alerts if a.status != ALERT_STATUS_PENDING]
+
+    tab_pending, tab_ack, tab_info = st.tabs([
+        f'🚨 Alertas de Riesgo y Cambios Pendientes ({len(pending_review)})',
+        f'✅ Alertas Reconocidas ({len(ack_review)})',
+        f'ℹ️ Notificaciones Informativas ({len(info_notifications)})',
     ])
 
     with tab_pending:
-        if not pending:
-            st.success('No hay alertas pendientes de revisión.')
+        if not pending_review:
+            st.success('No hay alertas de riesgo clínico ni cambios fisiológicos pendientes de revisión.')
         else:
-            for alert in pending:
+            for alert in pending_review:
                 type_info = ALERT_TYPES.get(alert.alert_type, {})
                 type_name = type_info.get('label', alert.alert_type)
+                category = type_info.get('category', 'riesgo_clinico')
+                if category == 'cambio_fisiologico' or alert.alert_type == 'value_change':
+                    badge_icon = '📉'
+                    badge_tag = 'Cambio Fisiológico'
+                elif category == 'operativa':
+                    badge_icon = '⏱️'
+                    badge_tag = 'Alerta Operativa'
+                else:
+                    badge_icon = '🚨'
+                    badge_tag = 'Alerta de Riesgo Clínico'
+
                 with st.expander(
-                    f'⚠️ [{type_name}] Paciente #{alert.patient_id} - '
+                    f'{badge_icon} [{badge_tag} — {type_name}] Paciente #{alert.patient_id} • '
                     f'{format_datetime(alert.created_at)}',
                     expanded=True,
                 ):
-                    st.markdown(f'**Motivo de Alerta:** {alert.reason}')
+                    st.markdown(f'**Detalle del aviso:** {alert.reason}')
                     st.caption(
-                        f'Regla: `{alert.rule_name}` | Generada: {format_datetime(alert.created_at)}'
+                        f'Categoría: **{badge_tag}** | Regla: `{alert.rule_name}` | Generada: {format_datetime(alert.created_at)}'
                     )
 
                     if alert.trigger_data:
@@ -1499,12 +1600,13 @@ def render_alert_panel(
                                 trig = json.loads(trig)
                             except Exception:
                                 pass
-                        st.json(trig)
+                        with st.expander('Ver datos técnicos del disparador', expanded=False):
+                            st.json(trig)
 
-                    if on_acknowledge is not None:
+                    if on_acknowledge is not None and alert.id is not None:
                         btn_key = f'ack_alert_btn_{alert.id}'
                         if st.button(
-                            f'Marcar como Reconocida (ID {alert.id})',
+                            f'✓ Reconocer Alerta #{alert.id}',
                             key=btn_key,
                         ):
                             success = on_acknowledge(alert.id)
@@ -1515,14 +1617,14 @@ def render_alert_panel(
                                 st.error('No fue posible actualizar la alerta.')
 
     with tab_ack:
-        if not acknowledged:
+        if not ack_review:
             st.info('No hay alertas en el histórico de reconocidas.')
         else:
-            for alert in acknowledged:
+            for alert in ack_review:
                 type_info = ALERT_TYPES.get(alert.alert_type, {})
                 type_name = type_info.get('label', alert.alert_type)
                 with st.expander(
-                    f'✅ [{type_name}] Paciente #{alert.patient_id} - '
+                    f'✅ [{type_name}] Paciente #{alert.patient_id} • '
                     f'{format_datetime(alert.created_at)}',
                     expanded=False,
                 ):
@@ -1531,9 +1633,28 @@ def render_alert_panel(
                         f'Regla: `{alert.rule_name}` | Reconocida: {format_datetime(alert.acknowledged_at)}'
                     )
 
+    with tab_info:
+        st.caption(
+            'Las notificaciones informativas registran eventos de trazabilidad (como la captura de una nueva medición) '
+            'y no constituyen alertas de riesgo clínico ni suman puntos en la cola de prioridad.'
+        )
+        if not info_notifications:
+            st.info('No se registran notificaciones informativas.')
+        else:
+            info_rows = [
+                {
+                    'Fecha / Hora': format_datetime(a.created_at),
+                    'Paciente ID': f'#{a.patient_id}',
+                    'Tipo': ALERT_TYPES.get(a.alert_type, {}).get('label', a.alert_type),
+                    'Descripción': a.reason,
+                }
+                for a in info_notifications
+            ]
+            st.dataframe(pd.DataFrame(info_rows), use_container_width=True, hide_index=True)
+
 
 def render_queue_table(queue_data: List[Any]) -> None:
-    """Renderiza la cola administrativa de atención en una tabla ordenada y destacada.
+    """Renderiza la cola administrativa de atención en una tabla compacta con opción de detalle ampliado.
 
     Acepta tanto objetos QueueEntry como diccionarios formateados.
 
@@ -1552,12 +1673,26 @@ def render_queue_table(queue_data: List[Any]) -> None:
             code = p.patient_code if p else 'N/D'
             name = (p.full_name or p.name) if p else 'N/D'
             tinfo = TRIAGE_LEVELS.get(p.triage_level, {}) if (p and p.triage_level) else {}
-            triage_label = tinfo.get('short_label', f"Nivel {p.triage_level}") if (p and p.triage_level) else 'N/D'
+            triage_label = (
+                tinfo.get('short_label', f"Nivel {p.triage_level}")
+                if (p and p.triage_level)
+                else 'Sin clasificar'
+            )
             symptoms = p.symptoms if (p and p.symptoms) else 'Sin síntomas'
             initial_dx = p.initial_diagnosis if (p and p.initial_diagnosis) else 'Pendiente'
 
+            eval_str = 'Sin evaluar'
+            if item.last_evaluation is not None:
+                if item.last_evaluation.completeness_status == 'incompleto' or item.last_evaluation.score is None:
+                    eval_str = 'Incompleta'
+                else:
+                    r_lbl = NEWS2_RISK_LEVELS.get(item.last_evaluation.risk_level or '', {}).get(
+                        'label', item.last_evaluation.risk_level or ''
+                    )
+                    eval_str = f"{item.last_evaluation.score} pts ({r_lbl})"
+
             reasons_str = (
-                ', '.join(item.reasons)
+                ' • '.join(item.reasons)
                 if isinstance(item.reasons, list)
                 else str(item.reasons)
             )
@@ -1566,9 +1701,10 @@ def render_queue_table(queue_data: List[Any]) -> None:
                 'patient_code': code,
                 'patient_name': name,
                 'triage_label': triage_label,
+                'news2_display': eval_str,
                 'symptoms': symptoms,
                 'initial_diagnosis': initial_dx,
-                'priority_score': round(item.priority_score, 2),
+                'priority_score': round(item.priority_score, 1),
                 'wait_time_minutes': item.wait_time_minutes,
                 'wait_time_formatted': format_wait_time(item.wait_time_minutes),
                 'pending_alerts': item.pending_alerts,
@@ -1578,11 +1714,12 @@ def render_queue_table(queue_data: List[Any]) -> None:
             pos = item.get('position', item.get('posicion', item.get('Posición', 0)))
             code = item.get('patient_code', item.get('codigo', item.get('Código', 'N/D')))
             name = item.get('patient_name', item.get('nombre', item.get('Nombre', 'N/D')))
-            triage_label = item.get('triage_label', item.get('triaje', item.get('Triaje', 'N/D')))
+            triage_label = item.get('triage_label', item.get('triaje', item.get('Triaje', 'Sin clasificar')))
+            eval_str = item.get('news2_display', item.get('Última evaluación', 'N/D'))
             symptoms = item.get('symptoms', item.get('sintomas', item.get('Síntomas', 'Sin síntomas')))
             initial_dx = item.get('initial_diagnosis', item.get('diagnostico', item.get('Diagnóstico inicial', 'Pendiente')))
             score = round(
-                float(item.get('priority_score', item.get('score', item.get('Puntuación prioridad', 0.0)))), 2
+                float(item.get('priority_score', item.get('score', item.get('Puntuación prioridad', 0.0)))), 1
             )
             wait_m = item.get(
                 'wait_time_minutes', item.get('tiempo_espera_minutos', None)
@@ -1596,13 +1733,14 @@ def render_queue_table(queue_data: List[Any]) -> None:
             alerts = item.get('pending_alerts', item.get('alertas', item.get('Alertas pendientes', 0)))
             r_val = item.get('reasons', item.get('reasons_str', item.get('razon', item.get('Razón del orden', ''))))
             reasons_str = (
-                ', '.join(r_val) if isinstance(r_val, list) else str(r_val)
+                ' • '.join(r_val) if isinstance(r_val, list) else str(r_val)
             )
             normalized.append({
                 'position': pos,
                 'patient_code': code,
                 'patient_name': name,
                 'triage_label': triage_label,
+                'news2_display': eval_str,
                 'symptoms': symptoms,
                 'initial_diagnosis': initial_dx,
                 'priority_score': score,
@@ -1616,34 +1754,48 @@ def render_queue_table(queue_data: List[Any]) -> None:
     if normalized:
         top_patient = normalized[0]
         st.warning(
-            f"🔔 **Próximo Paciente a Llamar:** `{top_patient['patient_code']}` ({top_patient['patient_name']}) | "
+            f"🔔 **Siguiente en Orden Administrativo (#1):** `{top_patient['patient_code']}` — **{top_patient['patient_name']}** | "
             f"Triaje: **{top_patient['triage_label']}** | "
-            f"Prioridad: **{top_patient['priority_score']}** | "
-            f"Factores: {top_patient['reasons_str'] or 'Tiempo estándar'}",
+            f"NEWS2: **{top_patient['news2_display']}** | "
+            f"Puntaje Prioridad: **{top_patient['priority_score']} pts**",
             icon='🚨',
         )
 
-    table_rows = []
+    compact_rows = []
+    full_rows = []
     for entry in normalized:
-        table_rows.append({
+        alert_badge = (
+            f"🚨 {entry['pending_alerts']}"
+            if entry['pending_alerts'] > 0
+            else '0'
+        )
+        compact_rows.append({
             'Posición': f"#{entry['position']}",
             'Código': entry['patient_code'],
-            'Nombre': entry['patient_name'],
+            'Paciente': entry['patient_name'],
             'Triaje': entry['triage_label'],
-            'Puntaje Prioridad': entry['priority_score'],
-            'Tiempo Espera': entry['wait_time_formatted'],
-            'Alertas': (
-                f"🚨 {entry['pending_alerts']}"
-                if entry['pending_alerts'] > 0
-                else '0'
-            ),
+            'Último NEWS2': entry['news2_display'],
+            'Alertas Clínicas': alert_badge,
+            'Espera': entry['wait_time_formatted'],
+            'Prioridad (pts)': entry['priority_score'],
+        })
+        full_rows.append({
+            'Posición': f"#{entry['position']}",
+            'Código': entry['patient_code'],
+            'Paciente': entry['patient_name'],
+            'Triaje': entry['triage_label'],
+            'Último NEWS2': entry['news2_display'],
+            'Alertas Clínicas': alert_badge,
+            'Espera': entry['wait_time_formatted'],
+            'Prioridad (pts)': entry['priority_score'],
             'Síntomas': entry['symptoms'],
-            'Diagnóstico': entry['initial_diagnosis'],
+            'Diagnóstico Inicial': entry['initial_diagnosis'],
             'Factores de Priorización': entry['reasons_str'],
         })
 
-    df = pd.DataFrame(table_rows)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(compact_rows), use_container_width=True, hide_index=True)
+    with st.expander('📋 Ver tabla detallada con síntomas, diagnóstico inicial y factores completos', expanded=False):
+        st.dataframe(pd.DataFrame(full_rows), use_container_width=True, hide_index=True)
 
 
 def render_queue_chart(queue_data: List[Any]) -> None:
@@ -1749,9 +1901,9 @@ def render_simulation_config() -> Dict[str, Any]:
         )
 
     # Vista previa de los 5 perfiles clínicos preprogramados
-    with st.expander('👥 Ver Perfiles Clínicos Predefinidos de la Simulación', expanded=True):
+    with st.expander('👥 Ver Perfiles Clínicos Predefinidos de la Simulación', expanded=False):
         st.markdown(
-            'El sistema utiliza perfiles sintéticos con cuadros clínicos y evolución realista:'
+            'El sistema utiliza perfiles sintéticos con cuadros clínicos y evolución fisiológica controlada:'
         )
         profiles_data = [
             {
@@ -1810,7 +1962,7 @@ def render_simulation_events(events: List[SimulationEvent]) -> None:
         st.info('No hay eventos registrados en la simulación.')
         return
 
-    st.markdown('##### 📜 Registro Cronológico de Eventos')
+    st.markdown('##### 📜 Registro Cronológico de Eventos de la Simulación')
 
     event_types = sorted(list(set(e.event_type for e in events)))
     selected_filter = st.selectbox(
@@ -1826,9 +1978,9 @@ def render_simulation_events(events: List[SimulationEvent]) -> None:
     rows = []
     for ev in filtered_events:
         rows.append({
-            'Hora / Fecha': format_datetime(ev.event_at),
+            'Hora / Fecha Simulada': format_datetime(ev.event_at),
             'Tipo de Evento': ev.event_type.upper(),
-            'Paciente ID': str(ev.patient_id) if ev.patient_id else '-',
+            'Paciente ID': f'#{ev.patient_id}' if ev.patient_id else '-',
             'Descripción del Evento': ev.description,
         })
 
@@ -1851,10 +2003,10 @@ def render_queue_evolution(queue_snapshots: List[List[Dict[str, Any]]]) -> None:
         for entry in snapshot:
             p_code = entry.get(
                 'patient_code',
-                entry.get('codigo', str(entry.get('patient_id', 'N/D'))),
+                entry.get('codigo', entry.get('Código', str(entry.get('patient_id', 'N/D')))),
             )
-            pos = entry.get('position', entry.get('posicion', 0))
-            score = entry.get('priority_score', entry.get('score', 0.0))
+            pos = entry.get('position', entry.get('posicion', entry.get('Posición', 0)))
+            score = entry.get('priority_score', entry.get('score', entry.get('Puntuación prioridad', 0.0)))
             records.append({
                 'Paso': step_idx,
                 'Paciente': p_code,
@@ -1873,13 +2025,13 @@ def render_queue_evolution(queue_snapshots: List[List[Dict[str, Any]]]) -> None:
         y='Posición',
         color='Paciente',
         markers=True,
-        title='Dinámica Temporal de Posiciones en Cola Administrativa',
+        title='Dinámica Temporal de Posiciones en Cola Administrativa (Simulación)',
         color_discrete_sequence=['#38bdf8', '#10b981', '#f59e0b', '#ec4899', '#a855f7'],
     )
     # Invertir eje Y para que la posición #1 esté arriba
     fig.update_yaxes(autorange='reversed', dtick=1)
     apply_dark_glass_theme(
-        fig, height=420, title='Dinámica Temporal de Posiciones en Cola Administrativa'
+        fig, height=400, title='Dinámica Temporal de Posiciones en Cola Administrativa (Simulación)'
     )
     fig.update_layout(
         xaxis_title='Paso Temporal de Simulación',
@@ -1901,21 +2053,21 @@ def render_simulation_results(results: Dict[str, Any]) -> None:
         return
 
     st.success(
-        f"Simulación ejecutada con éxito (ID: `{results.get('simulation_id', 'N/D')}`)"
+        f"Escenario sintético ejecutado con éxito (ID de corrida: `{results.get('simulation_id', 'N/D')}`)"
     )
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric('Pacientes Creados', results.get('patients_created', 0))
-    c2.metric('Mediciones Tomadas', results.get('total_measurements', 0))
-    c3.metric('Alertas Generadas', results.get('total_alerts', 0))
-    c4.metric('Total Eventos Registrados', results.get('total_events', 0))
+    c1.metric('Pacientes Sintéticos', results.get('patients_created', 0))
+    c2.metric('Mediciones Generadas', results.get('total_measurements', 0))
+    c3.metric('Alertas Clínicas/Operativas', results.get('total_alerts', 0))
+    c4.metric('Eventos de Bitácora', results.get('total_events', 0))
 
     st.markdown('---')
 
     # Visualización detallada de los pacientes creados en la simulación
     patients = results.get('patients', [])
     if patients:
-        st.subheader('👥 Pacientes Ficticios Incorporados en Urgencias')
+        st.subheader('👥 Pacientes Sintéticos Incorporados en el Escenario')
         rows = []
         for p in patients:
             prof = p.get('profile', {})
@@ -1924,15 +2076,16 @@ def render_simulation_results(results: Dict[str, Any]) -> None:
             rows.append({
                 'Código': p.get('code'),
                 'Nombre del Paciente': prof.get('patient_name'),
-                'Perfil': prof.get('name'),
+                'Perfil Fisiológico': prof.get('name'),
                 'Triaje Inicial': t_label,
                 'Síntomas Reportados': prof.get('symptoms'),
                 'Diagnóstico Inicial': prof.get('initial_diagnosis'),
             })
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
         st.info(
-            '💡 **Paso siguiente:** Puedes explorar el detalle de cada paciente en el **📋 Panel de Pacientes** '
-            'o ver su posición y factores de atención en la **📈 Cola de Atención**.'
+            '💡 **Trazabilidad:** Todos estos pacientes quedan marcados con la etiqueta **🔬 Simulado**. '
+            'Puede excluirlos en cualquier momento de la vista de **👥 Pacientes** o de la **📈 Cola de Atención** '
+            'mediante el filtro correspondiente, o limpiarlos con el botón **🗑 Limpiar Datos de Simulación**.'
         )
         st.markdown('---')
 
@@ -1947,87 +2100,97 @@ def render_simulation_results(results: Dict[str, Any]) -> None:
 
 def render_news2_explanation() -> None:
     """Renderiza la explicación técnica y tablas de referencia de la escala clínica NEWS2."""
-    st.subheader('📖 Metodología NEWS2 (Royal College of Physicians, 2017)')
+    st.subheader('📖 Especificación Técnica NEWS2 (Royal College of Physicians, 2017)')
     st.markdown("""
-    La escala **NEWS2** (National Early Warning Score 2) es un estándar clínico internacional diseñado 
-    para detectar oportunamente el deterioro fisiológico agudo en pacientes adultos. Evalúa 7 parámetros fisiológicos 
-    y asigna puntajes de 0 a 3 según el grado de desviación de los valores normales.
+    La escala **NEWS2** (*National Early Warning Score 2*) es un estándar clínico internacional diseñado 
+    para cuantificar el grado de alteración fisiológica aguda en pacientes adultos. Evalúa **7 parámetros fisiológicos** 
+    y asigna entre **0 y 3 puntos** a cada uno según su desviación respecto al rango normal.
     """)
 
     parameters_table = [
         {
             'Parámetro Fisiológico': 'Frecuencia Respiratoria (rpm)',
-            '3 Puntos': '<= 8',
-            '2 Puntos': '-',
-            '1 Punto': '9 - 11',
-            '0 Puntos (Normal)': '12 - 20',
-            '1 Punto ': '21 - 24',
-            '2 Puntos ': '-',
-            '3 Puntos ': '>= 25',
+            '3 Pts (Extremo Bajo)': '≤ 8',
+            '2 Pts (Bajo)': '—',
+            '1 Pto (Leve Bajo)': '9 – 11',
+            '0 Pts (Rango Normal)': '12 – 20',
+            '1 Pto (Leve Alto)': '—',
+            '2 Pts (Alto)': '21 – 24',
+            '3 Pts (Extremo Alto)': '≥ 25',
         },
         {
-            'Parámetro Fisiológico': 'Saturación SpO2 Escala 1 (%)',
-            '3 Puntos': '<= 91',
-            '2 Puntos': '92 - 93',
-            '1 Punto': '94 - 95',
-            '0 Puntos (Normal)': '>= 96',
-            '1 Punto ': '-',
-            '2 Puntos ': '-',
-            '3 Puntos ': '-',
+            'Parámetro Fisiológico': 'Saturación SpO2 — Escala 1 (%)',
+            '3 Pts (Extremo Bajo)': '≤ 91',
+            '2 Pts (Bajo)': '92 – 93',
+            '1 Pto (Leve Bajo)': '94 – 95',
+            '0 Pts (Rango Normal)': '≥ 96',
+            '1 Pto (Leve Alto)': '—',
+            '2 Pts (Alto)': '—',
+            '3 Pts (Extremo Alto)': '—',
+        },
+        {
+            'Parámetro Fisiológico': 'Saturación SpO2 — Escala 2 (%)',
+            '3 Pts (Extremo Bajo)': '≤ 83',
+            '2 Pts (Bajo)': '84 – 85',
+            '1 Pto (Leve Bajo)': '86 – 87',
+            '0 Pts (Rango Normal)': '88 – 92 (u ≥88 aire)',
+            '1 Pto (Leve Alto)': '93 – 94 (con O2)',
+            '2 Pts (Alto)': '95 – 96 (con O2)',
+            '3 Pts (Extremo Alto)': '≥ 97 (con O2)',
         },
         {
             'Parámetro Fisiológico': 'Oxígeno Suplementario',
-            '3 Puntos': '-',
-            '2 Puntos': 'Sí',
-            '1 Punto': '-',
-            '0 Puntos (Normal)': 'Aire ambiente (No)',
-            '1 Punto ': '-',
-            '2 Puntos ': '-',
-            '3 Puntos ': '-',
+            '3 Pts (Extremo Bajo)': '—',
+            '2 Pts (Bajo)': 'Sí (+2 pts)',
+            '1 Pto (Leve Bajo)': '—',
+            '0 Pts (Rango Normal)': 'Aire ambiente (0 pts)',
+            '1 Pto (Leve Alto)': '—',
+            '2 Pts (Alto)': '—',
+            '3 Pts (Extremo Alto)': '—',
         },
         {
-            'Parámetro Fisiológico': 'Presión Sistólica (mmHg)',
-            '3 Puntos': '<= 90',
-            '2 Puntos': '91 - 100',
-            '1 Punto': '101 - 110',
-            '0 Puntos (Normal)': '111 - 219',
-            '1 Punto ': '-',
-            '2 Puntos ': '-',
-            '3 Puntos ': '>= 220',
+            'Parámetro Fisiológico': 'Presión Arterial Sistólica (mmHg)',
+            '3 Pts (Extremo Bajo)': '≤ 90',
+            '2 Pts (Bajo)': '91 – 100',
+            '1 Pto (Leve Bajo)': '101 – 110',
+            '0 Pts (Rango Normal)': '111 – 219',
+            '1 Pto (Leve Alto)': '—',
+            '2 Pts (Alto)': '—',
+            '3 Pts (Extremo Alto)': '≥ 220',
         },
         {
             'Parámetro Fisiológico': 'Frecuencia Cardíaca (lpm)',
-            '3 Puntos': '<= 40',
-            '2 Puntos': '-',
-            '1 Punto': '41 - 50',
-            '0 Puntos (Normal)': '51 - 90',
-            '1 Punto ': '91 - 110',
-            '2 Puntos ': '111 - 130',
-            '3 Puntos ': '>= 131',
+            '3 Pts (Extremo Bajo)': '≤ 40',
+            '2 Pts (Bajo)': '—',
+            '1 Pto (Leve Bajo)': '41 – 50',
+            '0 Pts (Rango Normal)': '51 – 90',
+            '1 Pto (Leve Alto)': '91 – 110',
+            '2 Pts (Alto)': '111 – 130',
+            '3 Pts (Extremo Alto)': '≥ 131',
         },
         {
             'Parámetro Fisiológico': 'Nivel de Conciencia (AVPU)',
-            '3 Puntos': 'V, P o U',
-            '2 Puntos': '-',
-            '1 Punto': '-',
-            '0 Puntos (Normal)': 'Alerta (A)',
-            '1 Punto ': '-',
-            '2 Puntos ': '-',
-            '3 Puntos ': '-',
+            '3 Pts (Extremo Bajo)': '—',
+            '2 Pts (Bajo)': '—',
+            '1 Pto (Leve Bajo)': '—',
+            '0 Pts (Rango Normal)': 'Alerta (A)',
+            '1 Pto (Leve Alto)': '—',
+            '2 Pts (Alto)': '—',
+            '3 Pts (Extremo Alto)': 'V, P o U',
         },
         {
-            'Parámetro Fisiológico': 'Temperatura (°C)',
-            '3 Puntos': '<= 35.0',
-            '2 Puntos': '-',
-            '1 Punto': '35.1 - 36.0',
-            '0 Puntos (Normal)': '36.1 - 38.0',
-            '1 Punto ': '38.1 - 39.0',
-            '2 Puntos ': '>= 39.1',
-            '3 Puntos ': '-',
+            'Parámetro Fisiológico': 'Temperatura Corporal (°C)',
+            '3 Pts (Extremo Bajo)': '≤ 35.0',
+            '2 Pts (Bajo)': '—',
+            '1 Pto (Leve Bajo)': '35.1 – 36.0',
+            '0 Pts (Rango Normal)': '36.1 – 38.0',
+            '1 Pto (Leve Alto)': '38.1 – 39.0',
+            '2 Pts (Alto)': '≥ 39.1',
+            '3 Pts (Extremo Alto)': '—',
         },
     ]
 
-    st.markdown('##### Matriz de Puntuación Fisiológica')
+    st.markdown('##### Matriz Oficial de Puntuación Fisiológica NEWS2')
     st.dataframe(
         pd.DataFrame(parameters_table), use_container_width=True, hide_index=True
     )
@@ -2035,31 +2198,31 @@ def render_news2_explanation() -> None:
     st.markdown('##### Estratificación de Riesgo Clínico y Umbrales de Respuesta')
     risk_thresholds = [
         {
-            'Puntuación Agregada': '0 a 4 puntos',
-            'Nivel de Riesgo': 'Bajo',
+            'Puntuación Agregada': '0 a 4 puntos (sin parámetros en 3)',
+            'Nivel de Riesgo': 'Bajo (low)',
             'Respuesta Clínica Estándar Recomendada': (
-                'Evaluación periódica por enfermería en sala de espera/observación.'
+                'Monitoreo clínico rutinario por enfermería en sala de espera u observación.'
             ),
         },
         {
-            'Puntuación Agregada': 'Puntaje de 3 en un solo parámetro',
-            'Nivel de Riesgo': 'Bajo-Medio (Alerta Roja)',
+            'Puntuación Agregada': '1 a 4 puntos con al menos un parámetro = 3',
+            'Nivel de Riesgo': 'Bajo-Medio / Gatillo Rojo Individual (low_medium)',
             'Respuesta Clínica Estándar Recomendada': (
-                'Evaluación médica urgente del parámetro extremo específico.'
+                'Revisión urgente por profesional médico para evaluar el parámetro fisiológico extremo.'
             ),
         },
         {
             'Puntuación Agregada': '5 a 6 puntos',
-            'Nivel de Riesgo': 'Medio',
+            'Nivel de Riesgo': 'Medio (medium)',
             'Respuesta Clínica Estándar Recomendada': (
-                'Revisión médica urgente y optimización del monitoreo continuo.'
+                'Evaluación médica urgente y aumento de la frecuencia de monitoreo clínico.'
             ),
         },
         {
             'Puntuación Agregada': '7 o más puntos',
-            'Nivel de Riesgo': 'Alto',
+            'Nivel de Riesgo': 'Alto (high)',
             'Respuesta Clínica Estándar Recomendada': (
-                'Respuesta médica inmediata por equipo de emergencias / evaluación para UCI.'
+                'Valoración médica de emergencia inmediata y consideración de traslado a área crítica.'
             ),
         },
     ]
@@ -2067,37 +2230,42 @@ def render_news2_explanation() -> None:
         pd.DataFrame(risk_thresholds), use_container_width=True, hide_index=True
     )
 
-    st.caption("""
-    *Referencia Formal:* Royal College of Physicians. *National Early Warning Score (NEWS) 2: 
-    Standardising the assessment of acute-illness severity in the NHS*. Updated report of a working party. 
-    London: RCP, 2017.
-    """)
+    st.caption(
+        "*Referencia Formal:* Royal College of Physicians. *National Early Warning Score (NEWS) 2: "
+        "Standardising the assessment of acute-illness severity in the NHS*. Updated report of a working party. "
+        "London: RCP, 2017."
+    )
 
 
 def render_methodology_page() -> None:
-    """Renderiza la pantalla completa de metodología, reglas administrativas y limitaciones."""
-    st.title('📚 Configuración y Metodología')
+    """Renderiza los principios metodológicos, las reglas administrativas de cola y las limitaciones del prototipo."""
+    st.subheader('🏛️ Fundamentos Metodológicos y Separación Conceptual')
     st.markdown(METHODOLOGY_TEXT)
 
-    render_news2_explanation()
-
     st.markdown('---')
-    st.subheader('⚖️ Reglas Administrativas de Priorización en Cola')
+    st.subheader('⚖️ Factores de Ponderación de la Cola Administrativa')
     st.markdown("""
-    La cola de atención administrativa combina el riesgo clínico (NEWS2), las alertas operativas 
-    activas y el tiempo de espera acumulado mediante una fórmula explicable y transparente:
+    La cola de atención administrativa combina la clasificación de triaje registrada al ingreso, el puntaje NEWS2,
+    las alertas clínicas/operativas pendientes y el tiempo de espera acumulado (con un tope máximo de **36 puntos**
+    equivalente a 6 horas para impedir que esperas antiguas desplacen a pacientes con riesgo agudo elevado):
     """)
 
-    rules_df = pd.DataFrame(PRIORITY_RULES)
-    st.dataframe(rules_df, use_container_width=True, hide_index=True)
+    formatted_rules = [
+        {
+            'Identificador': r.get('name', ''),
+            'Descripción del Factor': r.get('description', ''),
+            'Peso de Referencia (pts)': r.get('weight', 0),
+        }
+        for r in PRIORITY_RULES
+    ]
+    st.dataframe(pd.DataFrame(formatted_rules), use_container_width=True, hide_index=True)
 
     st.markdown('---')
-    st.subheader('⚠️ Limitaciones Formales del Prototipo')
+    st.subheader('⚠️ Limitaciones Formales del Prototipo Académico')
     st.markdown("""
-    - **No apto para uso asistencial real:** Este sistema es un simulador académico y carece de validación clínica o regulatoria.
-    - **Independencia del Triage Legal:** Las categorías oficiales de Triage I a V (Resolución 5596 de 2015 del Ministerio de Salud) 
-      **no** son asignadas automáticamente por umbrales algorítmicos.
-    - **NEWS2 es informativo:** La escala NEWS2 cuantifica riesgo fisiológico general, no diagnósticos etiológicos.
-    - **Cola administrativa simulada:** El orden sugerido es una asistencia visual y no reemplaza el criterio médico.
-    - **Ficticio y confidencialidad:** No se almacenan ni procesan datos reales de pacientes identificables.
+    - **No apto para uso asistencial real:** Este software es un prototipo académico y carece de certificación como dispositivo médico.
+    - **Independencia del Triaje Normativo:** Las categorías de Triaje I a V no son calculadas automáticamente por el algoritmo; se registran como dato de admisión o quedan explícitamente pendientes de verificación.
+    - **NEWS2 mide deterioro fisiológico agudo:** No reemplaza el diagnóstico diferencial ni descarta patologías graves con signos vitales inicialmente conservados.
+    - **Ordenamiento administrativo sugerido:** La posición en la cola es un apoyo heurístico explicable y nunca sustituye el criterio del personal de salud.
+    - **Datos estrictamente ficticios:** Todos los pacientes y escenarios corresponden a casos sintéticos o académicos.
     """)

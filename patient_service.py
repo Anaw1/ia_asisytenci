@@ -38,7 +38,13 @@ from validation import (
     validate_administrative_status,
     ValidationResult,
 )
-from config import DATE_FORMAT, ADMIN_STATUSES, ALERT_STATUS_PENDING, TRIAGE_LEVELS
+from config import (
+    DATE_FORMAT,
+    ADMIN_STATUSES,
+    ALERT_STATUS_PENDING,
+    ALERT_TYPES,
+    TRIAGE_LEVELS,
+)
 
 
 def generate_patient_code() -> str:
@@ -50,25 +56,44 @@ def generate_patient_code() -> str:
     return f"PAC-{uuid.uuid4().hex[:8].upper()}"
 
 
-def compute_wait_time(arrival_at: str) -> float:
-    """Calcula el tiempo de espera acumulado en minutos desde la llegada hasta el momento actual.
+def compute_wait_time(
+    arrival_at: str,
+    reference_time: Optional[str] = None,
+    administrative_status: Optional[str] = None,
+) -> float:
+    """Calcula el tiempo de espera acumulado en minutos desde la llegada hasta el momento de referencia.
+
+    Si el estado administrativo es 'atendido' o 'alta', el paciente ya no se encuentra
+    en espera activa y retorna 0.0.
 
     Args:
         arrival_at: Cadena de fecha y hora en formato ISO 8601.
+        reference_time: Marca temporal opcional de referencia (ISO 8601). Si es None, usa la hora actual.
+        administrative_status: Estado administrativo opcional del paciente.
 
     Returns:
         float: Minutos de espera transcurridos (mínimo 0.0).
     """
+    if administrative_status in ("atendido", "alta"):
+        return 0.0
     if not arrival_at:
         return 0.0
     try:
         clean_arrival = str(arrival_at).replace("Z", "+00:00")
         arrival_dt = datetime.fromisoformat(clean_arrival)
 
-        if arrival_dt.tzinfo is not None:
-            now_dt = datetime.now(timezone.utc)
+        if reference_time:
+            clean_ref = str(reference_time).replace("Z", "+00:00")
+            now_dt = datetime.fromisoformat(clean_ref)
+            if arrival_dt.tzinfo is not None and now_dt.tzinfo is None:
+                now_dt = now_dt.replace(tzinfo=timezone.utc)
+            elif arrival_dt.tzinfo is None and now_dt.tzinfo is not None:
+                now_dt = now_dt.replace(tzinfo=None)
         else:
-            now_dt = datetime.now()
+            if arrival_dt.tzinfo is not None:
+                now_dt = datetime.now(timezone.utc)
+            else:
+                now_dt = datetime.now()
 
         diff_seconds = (now_dt - arrival_dt).total_seconds()
         return max(0.0, round(diff_seconds / 60.0, 1))
@@ -76,12 +101,21 @@ def compute_wait_time(arrival_at: str) -> float:
         return 0.0
 
 
+def is_clinical_review_alert(alert: Alert) -> bool:
+    """Determina si una alerta corresponde a un aviso clínico u operativo que requiere revisión."""
+    info = ALERT_TYPES.get(alert.alert_type, {})
+    return bool(info.get("requires_review", True))
+
+
 def _enrich_patient_with_conn(patient: Patient, conn: Any) -> Patient:
     """Enriquece un objeto Patient con campos calculados reutilizando una conexión existente."""
-    patient.wait_time_minutes = compute_wait_time(patient.arrival_at)
+    patient.wait_time_minutes = compute_wait_time(
+        patient.arrival_at, administrative_status=patient.administrative_status
+    )
 
     alerts = get_alerts_for_patient(conn, patient.id, status_filter=ALERT_STATUS_PENDING)
-    patient.pending_alerts_count = len(alerts)
+    clinical_alerts = [a for a in alerts if is_clinical_review_alert(a)]
+    patient.pending_alerts_count = len(clinical_alerts)
 
     latest_eval = get_latest_evaluation(conn, patient.id)
     if latest_eval:

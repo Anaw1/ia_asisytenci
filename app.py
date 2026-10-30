@@ -22,9 +22,27 @@ import simulation
 import validation
 
 
+# Mapa de migración de nombres antiguos de página al nuevo flujo de 6 pantallas
+LEGACY_PAGE_REDIRECTS: Dict[str, str] = {
+    "📋 Panel de Pacientes": "👥 Pacientes",
+    "➕ Registrar Paciente": "👥 Pacientes",
+    "📊 Registrar Medición": "🩺 Atención",
+    "⚡ Evaluación y Alertas": "🩺 Atención",
+    "📚 Configuración y Metodología": "📚 Metodología y Configuración",
+}
+
+MENU_OPTIONS: List[str] = [
+    "🏠 Inicio",
+    "👥 Pacientes",
+    "🩺 Atención",
+    "📈 Cola de Atención",
+    "🔬 Simulación",
+    "📚 Metodología y Configuración",
+]
+
+
 def init_app_state() -> None:
     """Inicializa la base de datos y las variables requeridas en el estado de sesión."""
-    # Inicialización segura de la base de datos
     try:
         database.init_db()
     except Exception:
@@ -33,7 +51,6 @@ def init_app_state() -> None:
             "Verifique la configuración de almacenamiento local."
         )
 
-    # Inicialización del motor de alertas en sesión
     if "alert_engine" not in st.session_state:
         try:
             st.session_state.alert_engine = alert_engine.AlertEngine()
@@ -43,9 +60,10 @@ def init_app_state() -> None:
                 "Revise la configuración de reglas."
             )
 
-    # Estado de navegación y paciente seleccionado
     if "current_page" not in st.session_state:
         st.session_state["current_page"] = "🏠 Inicio"
+    elif st.session_state["current_page"] in LEGACY_PAGE_REDIRECTS:
+        st.session_state["current_page"] = LEGACY_PAGE_REDIRECTS[st.session_state["current_page"]]
 
     if "selected_patient_id" not in st.session_state:
         st.session_state["selected_patient_id"] = None
@@ -53,16 +71,15 @@ def init_app_state() -> None:
     if "simulation_results" not in st.session_state:
         st.session_state["simulation_results"] = None
 
+    if "show_register_form" not in st.session_state:
+        st.session_state["show_register_form"] = False
+
+    if "last_care_eval_result" not in st.session_state:
+        st.session_state["last_care_eval_result"] = None
+
 
 def create_simulation_config_instance(config_dict: Optional[Dict[str, Any]]) -> models.SimulationConfig:
-    """Crea una instancia válida de SimulationConfig resolviendo diferencias de nombres de atributos.
-
-    Args:
-        config_dict: Diccionario con parámetros ingresados en el formulario o None.
-
-    Returns:
-        Instancia de SimulationConfig lista para ejecutar la simulación.
-    """
+    """Crea una instancia válida de SimulationConfig resolviendo diferencias de nombres de atributos."""
     if config_dict is None:
         config_dict = {}
 
@@ -70,15 +87,12 @@ def create_simulation_config_instance(config_dict: Optional[Dict[str, Any]]) -> 
     available_params = set(sig.parameters.keys())
     kwargs: Dict[str, Any] = {}
 
-    # Número de pacientes
     if "num_patients" in available_params:
         kwargs["num_patients"] = int(config_dict.get("num_patients", config.SIM_DEFAULT_PATIENTS))
 
-    # Duración de la simulación en horas
     if "duration_hours" in available_params:
         kwargs["duration_hours"] = int(round(float(config_dict.get("duration_hours", config.SIM_DEFAULT_DURATION_HOURS))))
 
-    # Intervalo de medición
     if "measurement_interval_minutes" in available_params:
         kwargs["measurement_interval_minutes"] = int(
             config_dict.get(
@@ -94,53 +108,208 @@ def create_simulation_config_instance(config_dict: Optional[Dict[str, Any]]) -> 
             )
         )
 
-    # Semilla aleatoria
     if "random_seed" in available_params:
-        kwargs["random_seed"] = int(config_dict.get("random_seed", config_dict.get("seed", config.SIM_RANDOM_SEED)))
+        kwargs["random_seed"] = int(config_dict.get("random_seed", config.SIM_RANDOM_SEED))
     elif "seed" in available_params:
-        kwargs["seed"] = int(config_dict.get("seed", config_dict.get("random_seed", config.SIM_RANDOM_SEED)))
+        kwargs["seed"] = int(config_dict.get("seed", config.SIM_RANDOM_SEED))
 
     return models.SimulationConfig(**kwargs)
 
 
 # ==============================================================================
-# PÁGINAS DE LA APLICACIÓN
+# 1. PÁGINA: INICIO
 # ==============================================================================
 
 
 def page_home() -> None:
-    """Renderiza la página de inicio y visión general de la plataforma académica."""
+    """Renderiza la página de inicio con resumen del prototipo, métricas reales y accesos claros."""
     try:
-        dashboard.render_home_page()
+        patients = patient_service.get_patient_list(include_simulated=True)
+    except Exception:
+        patients = []
+
+    try:
+        dashboard.render_home_page(patients=patients)
     except Exception:
         st.error("No se pudo cargar la página principal del sistema.")
 
 
-def page_patient_panel() -> None:
-    """Panel de gestión y visualización de pacientes registrados."""
-    st.title("📋 Panel de Pacientes")
-    st.markdown(
-        "Consulte los pacientes activos en el servicio de urgencias, filtre por estado administrativo "
-        "y actualice su situación en tiempo real."
-    )
+# ==============================================================================
+# 2. PÁGINA: PACIENTES (LISTADO + REGISTRO + DETALLE)
+# ==============================================================================
 
+
+def _render_patient_registration_section(expanded_default: bool = False) -> None:
+    """Renderiza el formulario de registro de un nuevo paciente sin asignar triaje silencioso."""
+    with st.expander(
+        "➕ Registrar Nuevo Paciente en Admisión",
+        expanded=expanded_default or st.session_state.get("show_register_form", False),
+    ):
+        st.markdown(
+            "Complete los datos de ingreso del paciente ficticio. "
+            "**Nota clínica:** el nivel de triaje no se preasigna automáticamente; seleccione explícitamente "
+            "la categoría valorada en admisión o déjelo como *Pendiente de verificación / Sin clasificar*."
+        )
+
+        triage_options: List[Optional[int]] = [None, 1, 2, 3, 4, 5]
+        triage_labels_map: Dict[Optional[int], str] = {
+            None: "⏳ Pendiente de verificación / Sin clasificar en admisión",
+            **{lvl: info["label"] for lvl, info in config.TRIAGE_LEVELS.items()},
+        }
+
+        with st.form("form_register_patient", clear_on_submit=False):
+            col_name, col_triage = st.columns([3, 2])
+            with col_name:
+                full_name_input = st.text_input(
+                    "Nombre completo del paciente (ficticio):",
+                    placeholder="Ej. Carlos Andrés Mendoza (Ficticio)",
+                    help="Nombre ficticio del paciente para humanizar el seguimiento académico.",
+                )
+            with col_triage:
+                triage_level_input = st.selectbox(
+                    "Clasificación de Triaje en Admisión:",
+                    options=triage_options,
+                    format_func=lambda x: triage_labels_map.get(x, "Sin clasificar"),
+                    index=0,
+                    help="Seleccione explícitamente el nivel I a V si ya fue valorado, o manténgalo pendiente de verificación.",
+                )
+
+            col_code1, col_code2 = st.columns([1, 2])
+            with col_code1:
+                auto_code = st.checkbox("Generar código institucional automáticamente", value=True)
+            with col_code2:
+                if auto_code:
+                    suggested_code = patient_service.generate_patient_code()
+                    st.text_input(
+                        "Código de paciente (se asignará automáticamente al guardar):",
+                        value=suggested_code,
+                        disabled=True,
+                        help="Código único generado siguiendo el estándar PAC-XXXXXXXX.",
+                    )
+                    final_code = None
+                else:
+                    final_code = st.text_input(
+                        "Código de paciente personalizado:",
+                        placeholder="Ej. PAC-001234",
+                        help="Ingrese un código único que cumpla con el formato alfanumérico institucional.",
+                    )
+
+            col_symptom1, col_symptom2 = st.columns(2)
+            with col_symptom1:
+                symptom_suggestion = st.selectbox(
+                    "Plantilla rápida de síntomas (opcional):",
+                    options=["-- Escribir síntoma personalizado --"] + config.COMMON_SYMPTOMS,
+                )
+                symptoms_input = st.text_area(
+                    "Síntomas principales reportados:",
+                    value="" if symptom_suggestion.startswith("--") else symptom_suggestion,
+                    placeholder="Describa el motivo de consulta, tiempo de evolución y síntomas referidos...",
+                    height=95,
+                )
+
+            with col_symptom2:
+                initial_diagnosis_input = st.text_area(
+                    "Impresión diagnóstica / Sospecha inicial:",
+                    placeholder="Ej. Síndrome febril agudo en estudio / Pendiente valoración médica...",
+                    height=95,
+                )
+
+            col_date, col_time, col_sim = st.columns([1.2, 1.2, 1.6])
+            with col_date:
+                arr_date = st.date_input("Fecha de ingreso:", value=datetime.now().date())
+            with col_time:
+                arr_time = st.time_input("Hora de ingreso:", value=datetime.now().time())
+            with col_sim:
+                st.write("")
+                st.write("")
+                is_simulated = st.checkbox(
+                    "Marcar como paciente simulado / sintético",
+                    value=False,
+                    help="Permite filtrarlo separadamente de los registros manuales.",
+                )
+
+            submitted = st.form_submit_button("💾 Registrar Paciente en Admisión", type="primary", use_container_width=True)
+
+        if submitted:
+            clean_code = final_code.strip() if final_code else None
+            clean_name = full_name_input.strip() if full_name_input else None
+            clean_symptoms = symptoms_input.strip() if symptoms_input else ""
+            clean_dx = initial_diagnosis_input.strip() if initial_diagnosis_input else ""
+            arrival_datetime_str = datetime.combine(arr_date, arr_time).isoformat()
+
+            with st.spinner("Validando y registrando admisión..."):
+                reg_res = patient_service.register_patient(
+                    patient_code=clean_code,
+                    full_name=clean_name,
+                    arrival_at=arrival_datetime_str,
+                    symptoms=clean_symptoms,
+                    initial_diagnosis=clean_dx,
+                    triage_level=triage_level_input,
+                    is_simulated=is_simulated,
+                )
+                if reg_res.get("success", False):
+                    assigned_code = reg_res.get("patient_code", clean_code)
+                    assigned_name = reg_res.get("full_name", clean_name or "Paciente Ficticio")
+                    patient_id = reg_res.get("patient_id")
+                    triage_lbl = (
+                        config.TRIAGE_LEVEL_LABELS.get(triage_level_input, f"Nivel {triage_level_input}")
+                        if triage_level_input is not None
+                        else "Pendiente de verificación / Sin clasificar"
+                    )
+                    st.session_state["selected_patient_id"] = patient_id
+                    st.session_state["show_register_form"] = False
+                    st.success(
+                        f"✅ Paciente registrado: **{assigned_name}** (`{assigned_code}`) | "
+                        f"Triaje: **{triage_lbl}**."
+                    )
+                    st.rerun()
+                else:
+                    for err in reg_res.get("errors", ["No fue posible registrar el paciente."]):
+                        st.error(err)
+
+
+def page_patients() -> None:
+    """Vista unificada de listado, admisión y ficha detallada de pacientes."""
+    col_title, col_action = st.columns([3, 1.2])
+    with col_title:
+        st.title("👥 Gestión y Padrón de Pacientes")
+        st.markdown(
+            "Consulte el listado general de pacientes, registre nuevos ingresos y revise la ficha clínica "
+            "y administrativa de cada paciente seleccionado."
+        )
+    with col_action:
+        st.write("")
+        if st.button(
+            "➕ Nuevo Paciente" if not st.session_state.get("show_register_form") else "✖ Ocultar Formulario",
+            type="primary",
+            use_container_width=True,
+        ):
+            st.session_state["show_register_form"] = not st.session_state.get("show_register_form", False)
+            st.rerun()
+
+    # Sección desplegable de registro de paciente
+    _render_patient_registration_section()
+
+    st.divider()
+
+    # Controles de filtrado del listado principal
     col_filter1, col_filter2 = st.columns([2, 1])
-
     status_options = ["todos"] + list(config.ADMIN_STATUSES.keys())
-    status_labels = {"todos": "Todos los estados", **config.ADMIN_STATUS_LABELS}
+    status_labels = {"todos": "Todos los estados administrativos", **config.ADMIN_STATUS_LABELS}
 
     with col_filter1:
         selected_status = st.selectbox(
-            "Filtrar por estado administrativo:",
+            "Filtrar listado por estado administrativo:",
             options=status_options,
             format_func=lambda x: status_labels.get(x, x),
         )
 
     with col_filter2:
+        st.write("")
         include_simulated = st.checkbox(
             "Incluir pacientes simulados",
             value=True,
-            help="Muestra tanto pacientes ingresados manualmente como generados por el simulador estocástico.",
+            help="Permite incluir o excluir de la tabla los pacientes sintéticos generados por el módulo de simulación.",
         )
 
     status_filter_val = None if selected_status == "todos" else selected_status
@@ -157,20 +326,23 @@ def page_patient_panel() -> None:
     st.subheader(f"Listado de Pacientes ({len(patients)} registros)")
 
     if not patients:
-        st.info("No se encontraron pacientes con los criterios de búsqueda especificados.")
+        st.info(
+            "No se encontraron pacientes con los filtros actuales. "
+            "Use el botón **➕ Nuevo Paciente** arriba para registrar un ingreso."
+        )
         return
 
-    try:
-        dashboard.render_patient_table(patients)
-    except Exception:
-        st.error("Error al renderizar la tabla de pacientes.")
+    dashboard.render_patient_table(patients)
 
     st.divider()
-    st.subheader("Detalle y Gestión de Paciente Seleccionado")
+    st.subheader("Ficha Detallada del Paciente Seleccionado")
 
-    # Mapeo de pacientes para selección detallada
     patient_options = {
-        p.id: f"{p.patient_code} - {p.full_name or p.name} (Triaje: {config.TRIAGE_LEVEL_LABELS.get(p.triage_level, 'N/D')}) - {config.ADMIN_STATUS_LABELS.get(p.administrative_status, p.administrative_status)}"
+        p.id: (
+            f"{p.patient_code} — {p.full_name or p.name} | "
+            f"Triaje: {config.TRIAGE_LEVEL_LABELS.get(p.triage_level, 'Sin clasificar')} | "
+            f"Estado: {config.ADMIN_STATUS_LABELS.get(p.administrative_status, p.administrative_status)}"
+        )
         for p in patients
     }
 
@@ -180,29 +352,42 @@ def page_patient_panel() -> None:
         else list(patient_options.keys())[0]
     )
 
-    selected_id = st.selectbox(
-        "Seleccione un paciente para inspeccionar:",
-        options=list(patient_options.keys()),
-        format_func=lambda pid: patient_options[pid],
-        index=list(patient_options.keys()).index(current_selection_id),
-    )
-    st.session_state["selected_patient_id"] = selected_id
+    sel_col1, sel_col2 = st.columns([3, 1.2])
+    with sel_col1:
+        selected_id = st.selectbox(
+            "Seleccione un paciente para inspeccionar su detalle e historial:",
+            options=list(patient_options.keys()),
+            format_func=lambda pid: patient_options[pid],
+            index=list(patient_options.keys()).index(current_selection_id),
+        )
+        st.session_state["selected_patient_id"] = selected_id
+    with sel_col2:
+        st.write("")
+        if st.button("🩺 Ir a Atención de este Paciente", type="primary", use_container_width=True):
+            st.session_state["selected_patient_id"] = selected_id
+            st.session_state["current_page"] = "🩺 Atención"
+            st.rerun()
 
     try:
-        patient_obj = patient_service.get_patient(selected_id)
-        if patient_obj:
-            patient_obj = patient_service.enrich_patient(patient_obj)
-            dashboard.render_patient_card(patient_obj)
-        else:
-            st.warning("No se encontró la información del paciente seleccionado.")
-            return
+        history = patient_service.get_patient_history(selected_id)
+        patient_obj = history.get("patient")
+        measurements = history.get("measurements", [])
+        evaluations = history.get("evaluations", [])
+        alerts = history.get("alerts", [])
+        latest_meas = measurements[-1] if measurements else None
     except Exception:
-        st.error("Error al obtener la información detallada del paciente.")
+        st.error("Error al obtener la ficha detallada del paciente.")
         return
 
-    # Actualización de estado administrativo
-    st.markdown("#### Actualizar Estado Administrativo")
-    update_col1, update_col2 = st.columns([2, 1])
+    if not patient_obj:
+        st.warning("No se encontró la información del paciente seleccionado.")
+        return
+
+    dashboard.render_patient_card(patient_obj, latest_measurement=latest_meas)
+
+    # Gestión de estado administrativo
+    st.markdown("#### Gestión de Estado Administrativo")
+    update_col1, update_col2 = st.columns([2.5, 1])
 
     current_status = patient_obj.administrative_status
     status_keys = list(config.ADMIN_STATUSES.keys())
@@ -210,59 +395,50 @@ def page_patient_panel() -> None:
 
     with update_col1:
         new_status = st.selectbox(
-            "Nuevo estado administrativo:",
+            "Cambiar estado administrativo del paciente:",
             options=status_keys,
             format_func=lambda s: config.ADMIN_STATUS_LABELS.get(s, s),
             index=current_index,
             key=f"status_select_{patient_obj.id}",
+            help="Al pasar a 'Atendido' o 'Alta', el paciente sale de la cola de espera activa y detiene su contador de espera.",
         )
 
     with update_col2:
         st.write("")
-        st.write("")
-        if st.button("Guardar Cambio de Estado", type="primary", use_container_width=True):
-            try:
-                res = patient_service.update_status(patient_obj.id, new_status)
-                if res.get("success", True):
-                    st.success(
-                        f"Estado actualizado a: {config.ADMIN_STATUS_LABELS.get(new_status, new_status)}"
-                    )
-                    st.rerun()
-                else:
-                    st.error(res.get("error", "No se pudo actualizar el estado administrativo."))
-            except Exception:
-                st.error("Ocurrió un error inesperado al actualizar el estado del paciente.")
-
-    # Visualización del historial clínico del paciente
-    with st.expander("Ver Historial Clínico Completo", expanded=False):
-        try:
-            history = patient_service.get_patient_history(patient_obj.id)
-            measurements = history.get("measurements", [])
-            evaluations = history.get("evaluations", [])
-
-            st.markdown("##### Mediciones Registradas")
-            if measurements:
-                dashboard.render_measurement_history(measurements)
-                dashboard.render_vitals_chart(measurements)
+        if st.button("Actualizar Estado", use_container_width=True):
+            res = patient_service.update_status(patient_obj.id, new_status)
+            if res.get("success", False):
+                st.success(
+                    f"Estado actualizado a: {config.ADMIN_STATUS_LABELS.get(new_status, new_status)}"
+                )
+                st.rerun()
             else:
-                st.info("Este paciente aún no tiene mediciones de signos vitales.")
+                for err in res.get("errors", ["No se pudo actualizar el estado."]):
+                    st.error(err)
 
-            st.markdown("##### Historial de Evaluaciones Clínicas (NEWS2)")
-            if evaluations:
-                dashboard.render_evaluation_history(evaluations)
-            else:
-                st.info("Este paciente no cuenta con evaluaciones clínicas calculadas.")
-        except Exception:
-            st.error("Error al cargar el historial del paciente.")
+    # Historial clínico y alertas en desplegables ordenados
+    with st.expander(
+        f"📊 Historial de Mediciones ({len(measurements)}) y Evaluaciones NEWS2 ({len(evaluations)})",
+        expanded=False,
+    ):
+        if measurements:
+            st.markdown("##### Constantes Vitales Registradas")
+            dashboard.render_measurement_history(measurements)
+            dashboard.render_vitals_chart(measurements)
+        else:
+            st.info("Este paciente aún no registra mediciones de signos vitales.")
 
-    # Baja y eliminación definitiva del paciente del registro
-    st.markdown("---")
+        if evaluations:
+            st.markdown("##### Evolución de Evaluaciones NEWS2")
+            dashboard.render_evaluation_history(evaluations)
+        else:
+            st.info("Este paciente aún no cuenta con evaluaciones NEWS2.")
+
     with st.expander("🗑️ Dar de Baja / Eliminar Paciente del Registro", expanded=False):
         st.warning(
-            f"⚠️ **Advertencia de eliminación:** Esta acción eliminará permanentemente al paciente "
+            f"⚠️ **Advertencia:** Esta acción eliminará permanentemente al paciente "
             f"**{patient_obj.full_name or 'Sin nombre'}** (`{patient_obj.patient_code}`) "
-            f"junto con todas sus constantes vitales registradas, evaluaciones clínicas NEWS2 y alertas generadas.\n\n"
-            f"Esta operación no se puede deshacer.",
+            f"y todos sus registros asociados.",
             icon="⚠️",
         )
         confirm_delete = st.checkbox(
@@ -276,189 +452,70 @@ def page_patient_panel() -> None:
             key=f"btn_delete_patient_{patient_obj.id}",
             use_container_width=True,
         ):
-            try:
-                del_res = patient_service.delete_patient(patient_obj.id)
-                if del_res.get("success"):
-                    st.session_state["selected_patient_id"] = None
-                    st.success(del_res.get("message", "Paciente eliminado exitosamente."))
-                    st.rerun()
-                else:
-                    errors_msg = ", ".join(del_res.get("errors", ["Error desconocido"]))
-                    st.error(f"No fue posible eliminar al paciente: {errors_msg}")
-            except Exception:
-                st.error("Error inesperado al intentar eliminar el paciente de la base de datos.")
+            del_res = patient_service.delete_patient(patient_obj.id)
+            if del_res.get("success"):
+                st.session_state["selected_patient_id"] = None
+                st.success(del_res.get("message", "Paciente eliminado exitosamente."))
+                st.rerun()
+            else:
+                errors_msg = ", ".join(del_res.get("errors", ["Error desconocido"]))
+                st.error(f"No fue posible eliminar al paciente: {errors_msg}")
 
 
-def page_register_patient() -> None:
-    """Formulario para la admisión y registro de un nuevo paciente."""
-    st.title("➕ Registrar Nuevo Paciente")
+# ==============================================================================
+# 3. PÁGINA: ATENCIÓN (MEDICIÓN -> PUNTUACIÓN Y DESGLOSE -> EXPLICACIÓN -> ALERTAS E HISTORIAL)
+# ==============================================================================
+
+
+def page_care() -> None:
+    """Flujo clínico integrado: registrar medición -> puntuación y desglose -> explicación -> alertas e historial."""
+    st.title("🩺 Atención Clínica, Evaluación NEWS2 y Alertas")
     st.markdown(
-        "Registre el ingreso de un paciente al servicio de urgencias. "
-        "El identificador generado o suministrado servirá para el seguimiento durante todo el flujo de atención."
+        "Flujo integrado por paciente: **1. Registrar medición** → **2. Puntuación y desglose NEWS2** → "
+        "**3. Explicación del resultado** → **4. Revisión de alertas e historial**."
     )
 
-    try:
-        dashboard.render_disclaimer()
-    except Exception:
-        pass
-
-    with st.form("form_register_patient", clear_on_submit=False):
-        col_name, col_triage = st.columns([3, 2])
-        with col_name:
-            full_name_input = st.text_input(
-                "Nombre completo del paciente (ficticio):",
-                placeholder="Ej. Carlos Gómez (Ficticio)",
-                help="Nombre del paciente para humanizar la atención asistencial.",
-            )
-        with col_triage:
-            triage_level_input = st.selectbox(
-                "Nivel de Triaje Profesional Inicial:",
-                options=[1, 2, 3, 4, 5],
-                format_func=lambda x: config.TRIAGE_LEVELS[x]['short_label'],
-                index=2,  # Nivel III predeterminado
-                help="Clasificación clínica profesional de admisión (I: Reanimación a V: No urgente).",
-            )
-
-        col_code1, col_code2 = st.columns([1, 2])
-        with col_code1:
-            auto_code = st.checkbox("Generar código automáticamente", value=True)
-        with col_code2:
-            if auto_code:
-                suggested_code = patient_service.generate_patient_code()
-                st.text_input(
-                    "Código de paciente (autogenerado):",
-                    value=suggested_code,
-                    disabled=True,
-                    help="Código único generado automáticamente siguiendo el estándar PAC-XXXXXX.",
-                )
-                final_code = suggested_code
-            else:
-                final_code = st.text_input(
-                    "Código de paciente personalizado:",
-                    placeholder="Ej. PAC-001234",
-                    help="Ingrese un código único que cumpla con el formato institucional PAC-XXXXXX.",
-                )
-
-        col_symptom1, col_symptom2 = st.columns(2)
-        with col_symptom1:
-            symptom_suggestion = st.selectbox(
-                "Motivo de consulta / Síntoma frecuente sugerido:",
-                options=["-- Escribir síntoma personalizado o manual --"] + config.COMMON_SYMPTOMS,
-            )
-            symptoms_input = st.text_area(
-                "Descripción detallada de síntomas reportados:",
-                value="" if symptom_suggestion.startswith("--") else symptom_suggestion,
-                placeholder="Describa el motivo de consulta, tiempo de evolución y síntomas principales...",
-                help="Descripción clínica o textual de los síntomas reportados al ingreso.",
-                height=100,
-            )
-
-        with col_symptom2:
-            initial_diagnosis_input = st.text_area(
-                "Diagnóstico inicial / Impresión diagnóstica:",
-                placeholder="Ej. Sospecha de síndrome coronario agudo / Descarte de neumonía...",
-                help="Sospecha diagnóstica inicial del personal asistencial al ingreso.",
-                height=100,
-            )
-
-        col_date, col_time = st.columns(2)
-        with col_date:
-            arr_date = st.date_input("Fecha de llegada:", value=datetime.now().date())
-        with col_time:
-            arr_time = st.time_input("Hora de llegada:", value=datetime.now().time())
-
-        is_simulated = st.checkbox(
-            "Marcar como paciente simulado / de prueba",
+    col_f1, col_f2 = st.columns([2, 1])
+    with col_f1:
+        only_active = st.checkbox(
+            "Mostrar únicamente pacientes en espera o en atención activa",
             value=False,
-            help="Indica si el paciente corresponde a una prueba sintética.",
+            help="Desmarque para consultar también el historial de pacientes ya atendidos o dados de alta.",
+        )
+    with col_f2:
+        include_simulated = st.checkbox(
+            "Incluir pacientes simulados",
+            value=True,
+            key="care_include_sim",
         )
 
-        submitted = st.form_submit_button("Registrar Paciente en Admisión", type="primary")
-
-    if submitted:
-        clean_code = final_code.strip() if final_code else None
-        clean_name = full_name_input.strip() if full_name_input else None
-        clean_symptoms = symptoms_input.strip() if symptoms_input else ""
-        clean_dx = initial_diagnosis_input.strip() if initial_diagnosis_input else ""
-        arrival_datetime_str = datetime.combine(arr_date, arr_time).isoformat()
-
-        # Validación previa con validation.py
-        if clean_code:
-            code_val = validation.validate_patient_code(clean_code)
-            if not code_val.is_valid:
-                for err in code_val.errors:
-                    st.error(f"Error en código de paciente: {err}")
-                return
-
-        if clean_name:
-            name_val = validation.validate_patient_name(clean_name, required=False)
-            if not name_val.is_valid:
-                for err in name_val.errors:
-                    st.error(f"Error en nombre: {err}")
-                return
-
-        arr_val = validation.validate_arrival_datetime(arrival_datetime_str)
-        if not arr_val.is_valid:
-            for err in arr_val.errors:
-                st.error(f"Error en fecha/hora de llegada: {err}")
-            return
-
-        with st.spinner("Guardando registro de admisión..."):
-            try:
-                reg_res = patient_service.register_patient(
-                    patient_code=clean_code,
-                    full_name=clean_name,
-                    arrival_at=arrival_datetime_str,
-                    symptoms=clean_symptoms,
-                    initial_diagnosis=clean_dx,
-                    triage_level=triage_level_input,
-                    is_simulated=is_simulated,
-                )
-                if reg_res.get("success", False) or "patient_id" in reg_res:
-                    assigned_code = reg_res.get("patient_code", clean_code)
-                    assigned_name = reg_res.get("full_name", clean_name or "Paciente Ficticio")
-                    patient_id = reg_res.get("patient_id", "")
-                    triage_lbl = config.TRIAGE_LEVEL_LABELS.get(triage_level_input, f"Nivel {triage_level_input}")
-                    st.success(
-                        f"¡Paciente registrado exitosamente! "
-                        f"**{assigned_name}** | Código: **{assigned_code}** | Triaje: **{triage_lbl}** (ID: {patient_id})."
-                    )
-                    st.session_state["selected_patient_id"] = patient_id
-                else:
-                    st.error(reg_res.get("error", "No fue posible registrar el paciente."))
-            except Exception:
-                st.error("Ocurrió un error inesperado durante el registro del paciente.")
-
-
-def page_register_measurement() -> None:
-    """Captura de signos vitales y evaluación inmediata de NEWS2 y alertas."""
-    st.title("📊 Registrar Medición de Signos Vitales")
-    st.markdown(
-        "Capture los signos vitales del paciente. Al guardar, el sistema calculará "
-        "el puntaje NEWS2 según la especificación del Royal College of Physicians (2017) "
-        "y emitirá alertas reactivas si se detecta deterioro fisiológico."
-    )
-
     try:
-        all_patients = patient_service.get_patient_list(include_simulated=True)
+        all_patients = patient_service.get_patient_list(include_simulated=include_simulated)
     except Exception:
         st.error("No se pudo obtener la lista de pacientes.")
         return
 
-    # Pacientes aptos para recibir mediciones (en espera o en atención)
-    eligible_patients = [
-        p for p in all_patients if p.administrative_status in ("en_espera", "en_atencion")
-    ]
+    if only_active:
+        eligible_patients = [
+            p for p in all_patients if p.administrative_status in ("en_espera", "en_atencion")
+        ]
+    else:
+        eligible_patients = all_patients
 
     if not eligible_patients:
-        st.warning(
-            "No hay pacientes actualmente en estado 'En Espera' o 'En Atención' para registrar mediciones. "
-            "Por favor, registre un nuevo paciente o actualice el estado de uno existente."
+        st.info(
+            "No hay pacientes disponibles con los filtros seleccionados. "
+            "Diríjase a **👥 Pacientes** para registrar un nuevo ingreso."
         )
         return
 
     patient_choices = {
-        p.id: f"{p.patient_code} - {p.full_name or p.name} (Triaje: {config.TRIAGE_LEVEL_LABELS.get(p.triage_level, 'N/D')}) - {config.ADMIN_STATUS_LABELS.get(p.administrative_status, p.administrative_status)}"
+        p.id: (
+            f"{p.patient_code} — {p.full_name or p.name} | "
+            f"Triaje: {config.TRIAGE_LEVEL_LABELS.get(p.triage_level, 'Sin clasificar')} | "
+            f"Estado: {config.ADMIN_STATUS_LABELS.get(p.administrative_status, p.administrative_status)} | "
+            f"NEWS2: {p.last_evaluation_score if p.last_evaluation_score is not None else 'S/E'}"
+        )
         for p in eligible_patients
     }
 
@@ -469,274 +526,254 @@ def page_register_measurement() -> None:
     )
 
     selected_patient_id = st.selectbox(
-        "Seleccione el paciente al que se le toman los signos vitales:",
+        "Paciente activo en contexto de atención:",
         options=list(patient_choices.keys()),
         format_func=lambda pid: patient_choices[pid],
         index=list(patient_choices.keys()).index(default_patient_id),
     )
     st.session_state["selected_patient_id"] = selected_patient_id
 
-    st.markdown("---")
-    st.subheader("Formulario de Captura de Signos Vitales")
-
     try:
-        form_data = dashboard.render_measurement_form()
+        history = patient_service.get_patient_history(selected_patient_id)
+        patient_obj = history.get("patient")
+        measurements: List[models.Measurement] = history.get("measurements", [])
+        evaluations: List[models.Evaluation] = history.get("evaluations", [])
+        patient_alerts: List[models.Alert] = history.get("alerts", [])
+        latest_meas = measurements[-1] if measurements else None
     except Exception:
-        st.error("Error al renderizar el formulario de signos vitales.")
-        form_data = None
+        st.error("Error al recuperar el contexto clínico del paciente.")
+        return
+
+    if patient_obj:
+        dashboard.render_patient_card(patient_obj, latest_measurement=latest_meas)
+
+    st.divider()
+
+    # ------------------------------------------------------------------
+    # PASO 1: REGISTRAR MEDICIÓN DE SIGNOS VITALES
+    # ------------------------------------------------------------------
+    st.subheader("1. Registrar Medición de Signos Vitales")
+    form_data = dashboard.render_measurement_form()
 
     if form_data is not None:
-        # Validación de datos ingresados
         val_res = validation.validate_measurement(form_data)
         if not val_res.is_valid:
             for err in val_res.errors:
                 st.error(f"Dato inválido: {err}")
-            return
-
-        with st.spinner("Registrando medición y evaluando condición clínica..."):
-            try:
+        else:
+            with st.spinner("Guardando medición y ejecutando evaluación NEWS2 y motor de reglas..."):
                 reg_res = patient_service.register_measurement(
                     patient_id=selected_patient_id,
                     measurement_data=form_data,
                     source="manual",
                 )
-            except Exception:
-                st.error("Error al persistir la medición en la base de datos.")
-                return
+                if not reg_res.get("success", False):
+                    for err in reg_res.get("errors", ["Error al guardar la medición."]):
+                        st.error(err)
+                else:
+                    for warn in reg_res.get("warnings", []):
+                        st.warning(warn)
 
-            if not reg_res.get("success", False):
-                for err in reg_res.get("errors", ["Error al guardar la medición."]):
-                    st.error(err)
-                return
+                    measurement_obj = reg_res["measurement"]
+                    eval_res = st.session_state.alert_engine.evaluate_new_measurement(
+                        patient_id=selected_patient_id,
+                        measurement=measurement_obj,
+                    )
+                    st.session_state["last_care_eval_result"] = {
+                        "patient_id": selected_patient_id,
+                        "evaluation": eval_res.get("evaluation"),
+                        "clinical_alerts": eval_res.get("clinical_alerts", []),
+                        "informative_notifications": eval_res.get("informative_notifications", []),
+                        "changes": eval_res.get("changes", []),
+                    }
 
-            st.success("Medición fisiológica registrada satisfactoriamente.")
-            for warn in reg_res.get("warnings", []):
-                st.warning(warn)
+                    clinical_alerts = eval_res.get("clinical_alerts", [])
+                    if clinical_alerts:
+                        st.warning(
+                            f"⚠️ Medición registrada. Se activaron **{len(clinical_alerts)} alerta(s)** "
+                            f"clínicas o de cambio fisiológico que requieren revisión."
+                        )
+                    else:
+                        st.success(
+                            "✅ Medición fisiológica registrada satisfactoriamente. "
+                            "No se activaron alertas de riesgo clínico (notificación informativa de trazabilidad registrada)."
+                        )
 
-            # Evaluación clínica inmediata mediante el motor de alertas
-            try:
-                measurement_obj = reg_res["measurement"]
-                eval_res = st.session_state.alert_engine.evaluate_new_measurement(
-                    patient_id=selected_patient_id,
-                    measurement=measurement_obj,
-                )
-            except Exception:
-                st.error("Error al procesar la evaluación clínica y alertas con el motor de reglas.")
-                eval_res = {}
+                    # Recargar historial actualizado tras la nueva medición
+                    history = patient_service.get_patient_history(selected_patient_id)
+                    measurements = history.get("measurements", [])
+                    evaluations = history.get("evaluations", [])
+                    patient_alerts = history.get("alerts", [])
 
-            # Visualización de resultados de NEWS2 y alertas generadas
-            evaluation = eval_res.get("evaluation")
-            if evaluation:
-                st.subheader("Resultado de la Evaluación Clínica NEWS2")
-                dashboard.render_evaluation_result(evaluation)
-
-            alerts = eval_res.get("alerts", [])
-            if alerts:
-                st.warning(f"Se han generado {len(alerts)} alerta(s) de riesgo clínico.")
-                dashboard.render_alert_panel(alerts)
-
-            changes = eval_res.get("changes", [])
-            if changes:
-                with st.expander("Variaciones Fisiológicas Relevantes Detectadas", expanded=True):
-                    for chg in changes:
-                        st.info(f"• {chg.get('description', chg)}")
-
-    # Mostrar histórico de mediciones y gráficos de tendencia
     st.divider()
-    st.subheader("Evolución Temporal de Signos Vitales del Paciente")
-    try:
-        history = patient_service.get_patient_history(selected_patient_id)
-        measurements = history.get("measurements", [])
+
+    # ------------------------------------------------------------------
+    # PASOS 2 Y 3: MOSTRAR PUNTUACIÓN Y DESGLOSE -> EXPLICAR EL RESULTADO
+    # ------------------------------------------------------------------
+    st.subheader("2. Puntuación NEWS2, Desglose por Parámetro y Explicación del Resultado")
+
+    latest_eval = evaluations[-1] if evaluations else None
+    if latest_eval is not None:
+        dashboard.render_evaluation_result(latest_eval)
+    else:
+        st.info(
+            "Este paciente aún no tiene una evaluación NEWS2 registrada. "
+            "Complete y guarde el formulario de signos vitales arriba para calcular su puntuación."
+        )
+
+    # Mostrar variaciones respecto a la medición previa si existen
+    last_care = st.session_state.get("last_care_eval_result")
+    if last_care and last_care.get("patient_id") == selected_patient_id:
+        changes = last_care.get("changes", [])
+        if changes:
+            relevant_changes = [c for c in changes if c.get("is_clinically_relevant", True)]
+            minor_changes = [c for c in changes if not c.get("is_clinically_relevant", True)]
+            if relevant_changes:
+                st.markdown("##### 📉 Cambios Fisiológicos Clínicamente Relevantes (vs. medición previa)")
+                for chg in relevant_changes:
+                    st.warning(f"• {chg.get('description', chg)}")
+            if minor_changes:
+                with st.expander("Ver oscilaciones menores dentro del rango normal (sin cambio de puntaje NEWS2)", expanded=False):
+                    for chg in minor_changes:
+                        st.caption(f"• {chg.get('description', chg)}")
+
+    st.divider()
+
+    # ------------------------------------------------------------------
+    # PASO 4: REVISAR ALERTAS E HISTORIAL
+    # ------------------------------------------------------------------
+    st.subheader("3. Revisión de Alertas, Cambios Fisiológicos e Historial del Paciente")
+
+    def acknowledge_callback(alert_id: int) -> bool:
+        """Reconoce una alerta pendiente y actualiza el estado."""
+        try:
+            return bool(st.session_state.alert_engine.acknowledge_alert(alert_id))
+        except Exception:
+            return False
+
+    tab_p_alerts, tab_p_history, tab_global_alerts = st.tabs([
+        "🔔 Alertas y Notificaciones del Paciente",
+        f"📈 Historial de Mediciones ({len(measurements)}) y Evaluaciones ({len(evaluations)})",
+        "🌐 Consola Global de Alertas en Urgencias",
+    ])
+
+    with tab_p_alerts:
+        dashboard.render_alert_panel(patient_alerts, on_acknowledge=acknowledge_callback)
+
+    with tab_p_history:
         if measurements:
-            dashboard.render_measurement_history(measurements)
+            st.markdown("##### Evolución Multivariable de Signos Vitales")
             dashboard.render_vitals_chart(measurements)
+            with st.expander("Ver tabla histórica detallada de mediciones", expanded=False):
+                dashboard.render_measurement_history(measurements)
         else:
             st.info("No se registran mediciones previas para este paciente.")
-    except Exception:
-        st.error("Error al cargar el historial temporal del paciente.")
 
-
-def page_evaluation_and_alerts() -> None:
-    """Visualización del estado NEWS2, historial de evaluaciones y atención de alertas."""
-    st.title("⚡ Evaluación Clínica y Gestión de Alertas")
-    st.markdown(
-        "Monitoreo continuo del puntaje de alerta temprana (NEWS2) y resolución de "
-        "alertas activas generadas por el motor de inferencia."
-    )
-
-    try:
-        patients = patient_service.get_patient_list(include_simulated=True)
-    except Exception:
-        st.error("No se pudo cargar la lista de pacientes.")
-        patients = []
-
-    if not patients:
-        st.info("No hay pacientes registrados en el sistema.")
-        return
-
-    patient_map = {
-        p.id: f"{p.patient_code} - {p.full_name or p.name} (Triaje: {config.TRIAGE_LEVEL_LABELS.get(p.triage_level, 'N/D')}) - {config.ADMIN_STATUS_LABELS.get(p.administrative_status, p.administrative_status)}"
-        for p in patients
-    }
-
-    default_id = (
-        st.session_state["selected_patient_id"]
-        if st.session_state["selected_patient_id"] in patient_map
-        else list(patient_map.keys())[0]
-    )
-
-    selected_patient_id = st.selectbox(
-        "Seleccione paciente para evaluar:",
-        options=list(patient_map.keys()),
-        format_func=lambda pid: patient_map[pid],
-        index=list(patient_map.keys()).index(default_id),
-    )
-    st.session_state["selected_patient_id"] = selected_patient_id
-
-    tab_eval, tab_alerts, tab_global_alerts = st.tabs(
-        ["Evaluación NEWS2", "Alertas del Paciente", "Todas las Alertas Pendientes"]
-    )
-
-    with tab_eval:
-        st.subheader("Última Evaluación Clínica Registrada")
-        try:
-            history = patient_service.get_patient_history(selected_patient_id)
-            evaluations = history.get("evaluations", [])
-            if evaluations:
-                latest_eval = evaluations[-1]
-                dashboard.render_evaluation_result(latest_eval)
-                st.divider()
-                st.subheader("Histórico Completo de Evaluaciones")
-                dashboard.render_evaluation_history(evaluations)
-            else:
-                st.info("El paciente seleccionado aún no cuenta con evaluaciones clínicas calculadas.")
-        except Exception:
-            st.error("Error al cargar las evaluaciones del paciente.")
-
-    def acknowledge_callback(alert_id: int) -> None:
-        """Callback ejecutado al presionar atender alerta."""
-        try:
-            ack_res = st.session_state.alert_engine.acknowledge_alert(alert_id)
-            if ack_res.get("success", True):
-                st.success(f"Alerta #{alert_id} atendida exitosamente.")
-                st.rerun()
-            else:
-                st.error(ack_res.get("error", "No fue posible atender la alerta."))
-        except Exception:
-            st.error("Error al registrar la atención de la alerta.")
-
-    with tab_alerts:
-        st.subheader("Alertas Pendientes del Paciente Seleccionado")
-        try:
-            patient_alerts = st.session_state.alert_engine.get_pending_alerts(patient_id=selected_patient_id)
-            if patient_alerts:
-                dashboard.render_alert_panel(patient_alerts, on_acknowledge=acknowledge_callback)
-            else:
-                st.success("No hay alertas clínicas pendientes para este paciente.")
-        except Exception:
-            st.error("Error al consultar las alertas del paciente.")
+        if len(evaluations) > 1:
+            st.markdown("##### Evolución Histórica del Puntaje NEWS2")
+            dashboard.render_evaluation_history(evaluations)
 
     with tab_global_alerts:
-        st.subheader("Consola General de Alertas Pendientes en Urgencias")
-        try:
-            all_pending_alerts = st.session_state.alert_engine.get_pending_alerts()
-            if all_pending_alerts:
-                st.warning(f"Hay {len(all_pending_alerts)} alerta(s) activas en el servicio.")
-                dashboard.render_alert_panel(all_pending_alerts, on_acknowledge=acknowledge_callback)
-            else:
-                st.success("No existen alertas clínicas pendientes en el servicio de urgencias.")
-        except Exception:
-            st.error("Error al consultar las alertas globales del sistema.")
+        st.markdown(
+            "Vista consolidada de todas las alertas clínicas y operativas pendientes en el servicio de urgencias:"
+        )
+        all_pending_clinical = st.session_state.alert_engine.get_pending_clinical_alerts()
+        if all_pending_clinical:
+            st.warning(
+                f"Hay **{len(all_pending_clinical)}** alerta(s) clínica(s) u operativa(s) pendientes de reconocimiento en el servicio."
+            )
+            dashboard.render_alert_panel(all_pending_clinical, on_acknowledge=acknowledge_callback)
+        else:
+            st.success("No existen alertas clínicas ni operativas pendientes de revisión en el servicio.")
+
+
+# ==============================================================================
+# 4. PÁGINA: COLA DE ATENCIÓN
+# ==============================================================================
 
 
 def page_queue() -> None:
-    """Cola de atención dinámica y priorización administrativa multidimensional."""
-    st.title("📈 Cola de Atención Dinámica")
+    """Cola de atención dinámica y priorización administrativa explicable."""
+    st.title("📈 Cola Administrativa de Atención")
     st.markdown(
-        "Priorización administrativa en tiempo real calculada a partir del puntaje NEWS2, "
-        "alertas clínicas activas y tiempo acumulado de espera en la sala."
+        "Ordenamiento administrativo explicable de pacientes en estado **En Espera**, calculado a partir "
+        "del triaje registrado en admisión, el puntaje NEWS2, las alertas clínicas pendientes y el tiempo de espera "
+        "(con tope máximo de 36 pts por espera para no desplazar pacientes con riesgo agudo elevado)."
     )
 
-    # Advertencia obligatoria
     st.warning(
         "⚠️ **AVISO METODOLÓGICO Y DE ALCANCE ACADÉMICO:** "
-        "La cola de atención es una herramienta de ordenamiento y soporte a la gestión de flujos. "
-        "**NO constituye triaje clínico normativo (Manchester/ESI I-V)** ni reemplaza el diagnóstico "
-        "o la decisión del profesional de salud a cargo."
+        "Esta cola es una sugerencia administrativa simulada para gestión de flujo en el prototipo. "
+        "**NO constituye triaje clínico normativo** ni reemplaza el diagnóstico o la decisión médica presencial."
     )
 
-    col_q1, col_q2 = st.columns([2, 1])
+    col_q1, col_q2 = st.columns([2.5, 1])
     with col_q1:
         include_simulated = st.checkbox(
-            "Incluir pacientes simulados en la cola",
+            "Incluir pacientes simulados en la cola administrativa",
             value=True,
-            help="Permite visualizar en el ordenamiento pacientes creados por el motor de simulación.",
+            help="Desmarque para visualizar únicamente pacientes registrados manualmente.",
         )
     with col_q2:
-        if st.button("Actualizar Cola", type="secondary", use_container_width=True):
+        if st.button("🔄 Recalcular Cola", type="secondary", use_container_width=True):
             st.rerun()
 
     try:
         queue: List[models.QueueEntry] = prioritization.build_queue(include_simulated=include_simulated)
+        summary = prioritization.get_queue_summary(queue)
     except Exception:
         st.error("Error al construir la cola de atención dinámica.")
         queue = []
-
-    try:
-        summary = prioritization.get_queue_summary(queue)
-    except Exception:
         summary = {}
 
-    st.subheader("Métricas Generales de la Cola")
+    st.subheader("Resumen Operativo de Pacientes en Espera")
     m_col1, m_col2, m_col3, m_col4 = st.columns(4)
 
     with m_col1:
         st.metric(
-            "Pacientes en Cola",
+            "Pacientes en Cola (En Espera)",
             summary.get("total_patients", len(queue)),
         )
     with m_col2:
         st.metric(
             "Riesgo Alto (NEWS2 ≥ 7)",
-            summary.get("high_risk_count", 0),
+            summary.get("patients_with_high_score", 0),
         )
     with m_col3:
         st.metric(
-            "Alertas Pendientes",
+            "Alertas Clínicas Pendientes",
             summary.get("pending_alerts_count", 0),
+            help=f"Pacientes con alertas activas en cola: {summary.get('patients_with_alerts', 0)}",
         )
     with m_col4:
-        avg_wait = summary.get("avg_wait_minutes", 0.0)
+        avg_wait = summary.get("avg_wait_time", 0.0)
         st.metric(
-            "Espera Promedio",
-            dashboard.format_wait_time(avg_wait) if hasattr(dashboard, "format_wait_time") else f"{avg_wait:.1f} min",
+            "Espera Promedio en Sala",
+            dashboard.format_wait_time(avg_wait),
         )
 
     st.divider()
 
     if not queue:
-        st.info("No hay pacientes en espera de atención en este momento.")
+        st.info(
+            "No hay pacientes en estado 'En Espera' con los criterios seleccionados. "
+            "(Los pacientes con estado 'En Atención', 'Atendido' o 'Alta' no forman parte de la cola de espera)."
+        )
         return
 
-    col_view1, col_view2 = st.columns([3, 2])
+    col_view1, col_view2 = st.columns([3.1, 1.9])
     with col_view1:
         st.subheader("Orden de Prioridad Actual")
-        try:
-            dashboard.render_queue_table(queue)
-        except Exception:
-            st.error("Error al renderizar la tabla de la cola.")
+        dashboard.render_queue_table(queue)
 
     with col_view2:
-        st.subheader("Distribución de Prioridad y Factores")
-        try:
-            dashboard.render_queue_chart(queue)
-        except Exception:
-            st.error("Error al renderizar el gráfico de la cola.")
+        st.subheader("Comparativa de Puntajes")
+        dashboard.render_queue_chart(queue)
 
     st.divider()
     st.subheader("Explicabilidad de la Posición en Cola")
     st.markdown(
-        "Seleccione un paciente de la cola para inspeccionar los factores matemáticos que determinaron su lugar:"
+        "Seleccione un paciente en espera para revisar el resumen de los factores que determinaron su posición:"
     )
 
     entry_options = {}
@@ -744,18 +781,14 @@ def page_queue() -> None:
         pid = entry.patient_id if entry.patient_id is not None else (entry.patient.id if entry.patient else id(entry))
         pcode = entry.patient_code or (entry.patient.patient_code if entry.patient else "N/D")
         pname = entry.patient_name or ((entry.patient.full_name or entry.patient.name) if entry.patient else "")
-        label = f"#{entry.position} - Paciente: {pcode}"
+        label = f"Posición #{entry.position} — {pcode}"
         if pname:
             label += f" ({pname})"
         label += f" | Prioridad: {entry.priority_score:.1f} pts"
         entry_options[pid] = label
 
-    if not entry_options:
-        st.info("No hay pacientes en espera en este momento.")
-        return
-
     selected_queue_id = st.selectbox(
-        "Seleccione paciente en cola:",
+        "Paciente en cola:",
         options=list(entry_options.keys()),
         format_func=lambda pid: entry_options.get(pid, str(pid)),
     )
@@ -770,68 +803,82 @@ def page_queue() -> None:
         None,
     )
     if selected_entry:
-        try:
-            explanation = prioritization.explain_position(selected_entry)
-            st.info(explanation)
-        except Exception as ex:
-            st.error(f"Error al generar la explicación de posición: {str(ex)}")
+        p_obj = selected_entry.patient
+        p_name = (p_obj.full_name or p_obj.name) if p_obj else "N/D"
+        p_code = p_obj.patient_code if p_obj else "N/D"
+
+        st.markdown(
+            f"""
+            <div class="glass-card" style="padding:18px 22px; margin-top:8px;">
+                <div style="font-size:1.05rem; font-weight:700; color:#f8fafc; margin-bottom:10px;">
+                    📌 Posición #{selected_entry.position}: {p_name} (<code>{p_code}</code>) — 
+                    <span style="color:#38bdf8;">{selected_entry.priority_score:.1f} puntos administrativos</span>
+                </div>
+                <div style="font-size:0.9rem; color:#cbd5e1; margin-bottom:6px; font-weight:600;">
+                    Desglose de factores aplicados:
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        for reason_item in selected_entry.reasons:
+            st.markdown(f"- {reason_item}")
+
+        with st.expander("🔍 Ver explicación textual íntegra y nota metodológica", expanded=False):
+            st.info(prioritization.explain_position(selected_entry))
+
+
+# ==============================================================================
+# 5. PÁGINA: SIMULACIÓN
+# ==============================================================================
 
 
 def page_simulation() -> None:
-    """Motor de simulación estocástica de flujo de pacientes y eventos en urgencias."""
-    st.title("🔬 Simulación de Flujo y Estrés del Servicio")
+    """Motor de simulación académica de escenarios sintéticos."""
+    st.title("🔬 Simulación Académica de Escenarios")
     st.markdown(
-        "Genere escenarios estocásticos de afluencia de pacientes, variaciones de signos vitales "
-        "y eventos de deterioro para evaluar la reactividad de la cola y las alertas."
+        "Genere escenarios sintéticos reproducibles con perfiles fisiológicos contrastados para evaluar "
+        "el cálculo NEWS2, la activación de alertas y la evolución de la cola administrativa."
     )
 
-    try:
-        config_data = dashboard.render_simulation_config()
-    except Exception:
-        st.error("Error al cargar los controles de configuración de simulación.")
-        config_data = None
+    st.info(
+        "ℹ️ **Aislamiento y Trazabilidad de Datos Simulados:** Todos los pacientes creados en este módulo se "
+        "identifican como **🔬 Simulado**. Puede filtrarlos o excluirlos en las vistas de **👥 Pacientes** y "
+        "**📈 Cola de Atención**, o eliminarlos completamente con el botón **🗑 Limpiar Datos de Simulación**."
+    )
 
-    col_btn1, col_btn2 = st.columns([1, 1])
+    config_data = dashboard.render_simulation_config()
 
+    col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
-        run_clicked = st.button("▶ Iniciar Simulación", type="primary", use_container_width=True)
-
+        run_clicked = st.button("▶ Ejecutar Escenario de Simulación", type="primary", use_container_width=True)
     with col_btn2:
         clear_clicked = st.button(
             "🗑 Limpiar Datos de Simulación",
             type="secondary",
             use_container_width=True,
-            help="Elimina pacientes, mediciones y alertas marcadas como simuladas.",
+            help="Elimina únicamente los pacientes, mediciones, evaluaciones y alertas generados por simulación.",
         )
 
     if clear_clicked:
-        with st.spinner("Eliminando datos sintéticos de simulación..."):
-            try:
-                clear_res = simulation.clear_simulation_data()
-                if clear_res.get("success", True):
-                    st.session_state["simulation_results"] = None
-                    st.success("Datos de simulación eliminados correctamente de la base de datos.")
-                    st.rerun()
-                else:
-                    st.error(clear_res.get("error", "Error al limpiar datos simulados."))
-            except Exception:
-                st.error("Error inesperado al intentar limpiar los datos de simulación.")
+        with st.spinner("Eliminando registros sintéticos de simulación..."):
+            clear_res = simulation.clear_simulation_data()
+            if clear_res.get("success", False):
+                st.session_state["simulation_results"] = None
+                deleted_n = clear_res.get("deleted_count", 0)
+                st.success(f"Se eliminaron correctamente {deleted_n} paciente(s) simulado(s) y sus eventos asociados.")
+                st.rerun()
+            else:
+                for err in clear_res.get("errors", ["Error al limpiar datos simulados."]):
+                    st.error(err)
 
     if run_clicked:
         sim_config = create_simulation_config_instance(config_data)
-
-        # Validación formal de parámetros
         val_res = validation.validate_simulation_config(
             num_patients=int(sim_config.num_patients),
-            duration_hours=int(getattr(sim_config, "duration_hours", 4)),
-            measurement_interval=int(
-                getattr(
-                    sim_config,
-                    "measurement_interval_minutes",
-                    getattr(sim_config, "measurement_interval", 30),
-                )
-            ),
-            seed=int(getattr(sim_config, "random_seed", getattr(sim_config, "seed", 42))),
+            duration_hours=int(sim_config.duration_hours),
+            measurement_interval=int(sim_config.measurement_interval_minutes),
+            seed=int(sim_config.random_seed),
         )
 
         if not val_res.is_valid:
@@ -839,82 +886,93 @@ def page_simulation() -> None:
                 st.error(f"Configuración inválida: {err}")
             return
 
-        with st.spinner("Ejecutando simulación clínica estocástica..."):
-            try:
-                results = simulation.run_simulation(sim_config)
-                st.session_state["simulation_results"] = results
-                st.success("¡Simulación completada satisfactoriamente!")
-            except Exception:
-                st.error("Ocurrió un error inesperado durante la ejecución de la simulación.")
+        with st.spinner("Ejecutando simulación temporal reproducible..."):
+            results = simulation.run_simulation(sim_config)
+            st.session_state["simulation_results"] = results
 
-    # Mostrar resultados persistidos en sesión si existen
     results = st.session_state.get("simulation_results")
     if results:
         st.divider()
-        try:
-            dashboard.render_simulation_results(results)
-        except Exception:
-            st.error("Error al renderizar los resultados de la simulación.")
+        dashboard.render_simulation_results(results)
+
+
+# ==============================================================================
+# 6. PÁGINA: METODOLOGÍA Y CONFIGURACIÓN
+# ==============================================================================
 
 
 def page_config_and_methodology() -> None:
-    """Documentación técnica, fundamentación de NEWS2 y reglas del motor de alertas."""
-    st.title("📚 Configuración y Metodología")
+    """Documentación metodológica, especificación NEWS2 y configuración de reglas del motor de alertas."""
+    st.title("📚 Metodología, Especificación NEWS2 y Reglas de Alerta")
     st.markdown(
-        "Consulte los fundamentos clínicos del score NEWS2 (Royal College of Physicians), "
-        "las limitaciones del prototipo académico y configure las reglas activas del motor de alertas."
+        "Consulte la especificación clínica NEWS2 (Royal College of Physicians, 2017), "
+        "los factores de ponderación de la cola administrativa, los límites del prototipo "
+        "y gestione la activación de reglas del motor de alertas."
     )
 
-    tab_methodology, tab_news2, tab_rules = st.tabs(
-        ["Metodología y Alcance", "Especificación NEWS2", "Reglas de Alerta"]
-    )
+    tab_methodology, tab_news2, tab_rules = st.tabs([
+        "🏛️ Metodología y Límites del Prototipo",
+        "📖 Especificación Oficial NEWS2",
+        "⚙️ Configuración de Reglas de Alerta",
+    ])
 
     with tab_methodology:
-        try:
-            dashboard.render_methodology_page()
-        except Exception:
-            st.error("Error al cargar la página de metodología.")
+        dashboard.render_methodology_page()
 
     with tab_news2:
-        try:
-            dashboard.render_news2_explanation()
-        except Exception:
-            st.error("Error al cargar la explicación detallada de NEWS2.")
+        dashboard.render_news2_explanation()
 
     with tab_rules:
         st.subheader("Estado y Configuración de Reglas del Motor de Alertas")
         st.markdown(
-            "Active o desactive las reglas de detección de riesgo fisiológico. "
-            "Los cambios impactarán en la evaluación reactiva de las próximas mediciones."
+            "Active o desactive las reglas evaluadas por `AlertEngine`. "
+            "Los cambios aplicados aquí afectan inmediatamente a las evaluaciones de nuevas mediciones registradas en la sesión."
         )
 
         try:
-            rules_status = st.session_state.alert_engine.get_rules_status()
+            rules_status: List[Dict[str, Any]] = st.session_state.alert_engine.get_rules_status()
         except Exception:
             st.error("Error al consultar el estado de las reglas de alerta.")
-            rules_status = {}
+            rules_status = []
 
         if not rules_status:
-            st.info("No hay reglas de alerta configuradas o expuestas por el motor.")
+            st.info("No hay reglas de alerta registradas en el motor.")
         else:
-            for rule_name, is_enabled in rules_status.items():
-                rule_desc = config.PRIORITY_RULES.get(rule_name, {}).get("description", rule_name)
-                toggled = st.toggle(
-                    f"**{rule_name}**: {rule_desc}",
-                    value=is_enabled,
-                    key=f"rule_toggle_{rule_name}",
-                )
+            category_labels = {
+                "riesgo_clinico": "🚨 Alerta de Riesgo Clínico (Requiere revisión)",
+                "cambio_fisiologico": "📉 Alerta de Cambio Fisiológico (Requiere revisión)",
+                "operativa": "⏱️ Alerta Operativa / Administrativa (Requiere revisión)",
+                "informativa": "ℹ️ Notificación Informativa de Trazabilidad (No suma prioridad)",
+            }
 
-                if toggled != is_enabled:
-                    try:
-                        if toggled:
-                            st.session_state.alert_engine.enable_rule(rule_name)
-                            st.toast(f"Regla '{rule_name}' activada.", icon="✅")
-                        else:
-                            st.session_state.alert_engine.disable_rule(rule_name)
-                            st.toast(f"Regla '{rule_name}' desactivada.", icon="⏸️")
-                    except Exception:
-                        st.error(f"Error al cambiar el estado de la regla '{rule_name}'.")
+            for rule_info in rules_status:
+                r_name = rule_info.get("name", "")
+                r_label = rule_info.get("label", r_name)
+                r_desc = rule_info.get("description", "")
+                r_cat = rule_info.get("category", "riesgo_clinico" if rule_info.get("requires_review") else "informativa")
+                is_enabled = bool(rule_info.get("enabled", True))
+                cat_badge = category_labels.get(r_cat, r_cat)
+
+                with st.container():
+                    col_r1, col_r2 = st.columns([3.5, 1])
+                    with col_r1:
+                        st.markdown(f"**{r_label}** (`{r_name}`)")
+                        st.caption(f"{cat_badge} — {r_desc}")
+                    with col_r2:
+                        toggled = st.toggle(
+                            "Regla activa" if is_enabled else "Regla inactiva",
+                            value=is_enabled,
+                            key=f"rule_toggle_{r_name}",
+                        )
+                        if toggled != is_enabled:
+                            if toggled:
+                                st.session_state.alert_engine.enable_rule(r_name)
+                                st.toast(f"Regla '{r_label}' activada.", icon="✅")
+                            else:
+                                st.session_state.alert_engine.disable_rule(r_name)
+                                st.toast(f"Regla '{r_label}' desactivada.", icon="⏸️")
+                            st.rerun()
+                    st.markdown("---")
 
 
 # ==============================================================================
@@ -924,7 +982,6 @@ def page_config_and_methodology() -> None:
 
 def main() -> None:
     """Función principal de ejecución y enrutamiento de la aplicación."""
-    # Configuración de página de Streamlit (OBLIGATORIAMENTE primera llamada Streamlit)
     st.set_page_config(
         page_title="IA Médica Asistencial | Triaje y Priorización",
         page_icon="🏥",
@@ -932,14 +989,18 @@ def main() -> None:
         initial_sidebar_state="expanded",
     )
 
-    # Inyección de hoja de estilos Dark Glassmorphism
     st.markdown(dashboard.get_glassmorphism_css(), unsafe_allow_html=True)
 
-    # Inicialización del entorno
     init_app_state()
 
-    # Cabecera superior moderna con perfil de usuario activo
-    dashboard.render_top_header()
+    # Conteo real de alertas clínicas/operativas pendientes (excluyendo notificaciones informativas)
+    try:
+        pending_clinical_alerts = st.session_state.alert_engine.get_pending_clinical_alerts()
+        pending_alerts_count = len(pending_clinical_alerts)
+    except Exception:
+        pending_alerts_count = 0
+
+    dashboard.render_top_header(pending_alerts_count=pending_alerts_count)
 
     # Barra lateral de navegación estilizada
     st.sidebar.markdown(
@@ -961,32 +1022,22 @@ def main() -> None:
 
     st.sidebar.markdown("---")
 
-    menu_options = [
-        "🏠 Inicio",
-        "📋 Panel de Pacientes",
-        "➕ Registrar Paciente",
-        "📊 Registrar Medición",
-        "⚡ Evaluación y Alertas",
-        "📈 Cola de Atención",
-        "🔬 Simulación",
-        "📚 Configuración y Metodología",
-    ]
+    current_page = st.session_state.get("current_page", MENU_OPTIONS[0])
+    if current_page in LEGACY_PAGE_REDIRECTS:
+        current_page = LEGACY_PAGE_REDIRECTS[current_page]
+    if current_page not in MENU_OPTIONS:
+        current_page = MENU_OPTIONS[0]
 
     selected_nav = st.sidebar.radio(
-        "Navegación:",
-        options=menu_options,
-        index=menu_options.index(st.session_state["current_page"])
-        if st.session_state["current_page"] in menu_options
-        else 0,
+        "Flujo de Trabajo:",
+        options=MENU_OPTIONS,
+        index=MENU_OPTIONS.index(current_page),
     )
-    st.session_state["current_page"] = selected_nav
+    if selected_nav != st.session_state.get("current_page"):
+        st.session_state["current_page"] = selected_nav
+        st.rerun()
 
-    # Conteo y tarjeta destacada de alertas en la barra lateral
-    try:
-        pending_alerts_count = len(st.session_state.alert_engine.get_pending_alerts())
-    except Exception:
-        pending_alerts_count = 0
-
+    # Tarjeta destacada de alertas clínicas pendientes en la barra lateral
     if pending_alerts_count > 0:
         st.sidebar.markdown(
             f"""
@@ -994,22 +1045,22 @@ def main() -> None:
                 <div class="sidebar-alert-title">
                     <span>⚠️</span> {pending_alerts_count} alerta(s) clínica(s) pendiente(s)
                 </div>
-                <div class="sidebar-alert-sub">Requiere revisión médica u operativa en sala.</div>
+                <div class="sidebar-alert-sub">Requieren revisión asistencial u operativa en sala.</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
-        if st.sidebar.button("Ver Detalles", key="btn_sidebar_view_alerts", use_container_width=True):
-            st.session_state["current_page"] = "⚡ Evaluación y Alertas"
+        if st.sidebar.button("Revisar en Atención", key="btn_sidebar_view_alerts", use_container_width=True):
+            st.session_state["current_page"] = "🩺 Atención"
             st.rerun()
     else:
         st.sidebar.markdown(
             """
             <div class="sidebar-alert-card" style="border-color: rgba(16, 185, 129, 0.4); background: linear-gradient(135deg, rgba(16, 185, 129, 0.14) 0%, rgba(5, 150, 105, 0.08) 100%);">
                 <div class="sidebar-alert-title" style="color: #34d399;">
-                    <span>✅</span> Sin alertas pendientes
+                    <span>✅</span> Sin alertas de riesgo activas
                 </div>
-                <div class="sidebar-alert-sub" style="color: #a7f3d0;">Parámetros fisiológicos estables en sala.</div>
+                <div class="sidebar-alert-sub" style="color: #a7f3d0;">No hay alertas clínicas pendientes de reconocimiento.</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1026,26 +1077,17 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    # Enrutamiento de páginas
     page_router = {
         "🏠 Inicio": page_home,
-        "📋 Panel de Pacientes": page_patient_panel,
-        "➕ Registrar Paciente": page_register_patient,
-        "📊 Registrar Medición": page_register_measurement,
-        "⚡ Evaluación y Alertas": page_evaluation_and_alerts,
+        "👥 Pacientes": page_patients,
+        "🩺 Atención": page_care,
         "📈 Cola de Atención": page_queue,
         "🔬 Simulación": page_simulation,
-        "📚 Configuración y Metodología": page_config_and_methodology,
+        "📚 Metodología y Configuración": page_config_and_methodology,
     }
 
     render_func = page_router.get(selected_nav, page_home)
-    try:
-        render_func()
-    except Exception:
-        st.error(
-            "Ocurrió un error inesperado al procesar la vista solicitada. "
-            "Por favor, vuelva a intentar la operación."
-        )
+    render_func()
 
 
 if __name__ == "__main__":

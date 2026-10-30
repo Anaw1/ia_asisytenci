@@ -115,11 +115,12 @@ class NewMeasurementRule(AlertRule):
             ensure_ascii=False,
         )
 
+        ref_time = context.get("reference_time") or datetime.now().isoformat()
         return Alert(
             id=None,
             patient_id=patient.id,
             evaluation_id=context.get("evaluation_id"),
-            created_at=datetime.now().isoformat(),
+            created_at=ref_time,
             alert_type=self.alert_type,
             reason=reason,
             status=ALERT_STATUS_PENDING,
@@ -136,7 +137,7 @@ class ValueChangeRule(AlertRule):
         super().__init__(
             name="value_change",
             label="Cambio significativo en signos vitales",
-            description="Alerta cuando los signos vitales muestran variaciones o cambios de puntuación NEWS2.",
+            description="Alerta cuando los signos vitales muestran cambios de puntuación NEWS2 o variaciones fisiológicas clínicamente relevantes.",
             alert_type="value_change",
             requires_review=True,
             enabled=enabled,
@@ -149,17 +150,24 @@ class ValueChangeRule(AlertRule):
         if not changes or patient is None or patient.id is None:
             return None
 
-        descriptions = [c.get("description", "") for c in changes if "description" in c]
+        relevant_changes = [
+            c for c in changes if c.get("is_clinically_relevant", True)
+        ]
+        if not relevant_changes:
+            return None
+
+        descriptions = [c.get("description", "") for c in relevant_changes if "description" in c]
         reason_summary = "; ".join(descriptions[:2])
         reason = f"Cambio clínico detectado: {reason_summary}"
 
-        trigger_data = json.dumps({"changes": changes}, ensure_ascii=False)
+        trigger_data = json.dumps({"changes": relevant_changes}, ensure_ascii=False)
+        ref_time = context.get("reference_time") or datetime.now().isoformat()
 
         return Alert(
             id=None,
             patient_id=patient.id,
             evaluation_id=context.get("evaluation_id"),
-            created_at=datetime.now().isoformat(),
+            created_at=ref_time,
             alert_type=self.alert_type,
             reason=reason,
             status=ALERT_STATUS_PENDING,
@@ -199,12 +207,13 @@ class IncompleteEvaluationRule(AlertRule):
         trigger_data = json.dumps(
             {"missing_parameters": missing_list}, ensure_ascii=False
         )
+        ref_time = context.get("reference_time") or datetime.now().isoformat()
 
         return Alert(
             id=None,
             patient_id=patient.id,
             evaluation_id=context.get("evaluation_id"),
-            created_at=datetime.now().isoformat(),
+            created_at=ref_time,
             alert_type=self.alert_type,
             reason=reason,
             status=ALERT_STATUS_PENDING,
@@ -267,12 +276,13 @@ class HighScoreRule(AlertRule):
             },
             ensure_ascii=False,
         )
+        ref_time = context.get("reference_time") or datetime.now().isoformat()
 
         return Alert(
             id=None,
             patient_id=patient.id,
             evaluation_id=context.get("evaluation_id"),
-            created_at=datetime.now().isoformat(),
+            created_at=ref_time,
             alert_type=self.alert_type,
             reason=reason,
             status=ALERT_STATUS_PENDING,
@@ -305,6 +315,10 @@ class LongWaitRule(AlertRule):
         if patient.administrative_status != "en_espera":
             return None
 
+        pending_alerts: List[Alert] = context.get("pending_alerts", [])
+        if any(a.alert_type == "long_wait" for a in pending_alerts):
+            return None
+
         wait_time = context.get("wait_time_minutes", 0.0)
         if wait_time >= self.wait_threshold_minutes:
             reason = (
@@ -318,12 +332,13 @@ class LongWaitRule(AlertRule):
                 },
                 ensure_ascii=False,
             )
+            ref_time = context.get("reference_time") or datetime.now().isoformat()
 
             return Alert(
                 id=None,
                 patient_id=patient.id,
                 evaluation_id=context.get("evaluation_id"),
-                created_at=datetime.now().isoformat(),
+                created_at=ref_time,
                 alert_type=self.alert_type,
                 reason=reason,
                 status=ALERT_STATUS_PENDING,
@@ -354,24 +369,36 @@ class UnacknowledgedAlertRule(AlertRule):
             return None
 
         pending_alerts: List[Alert] = context.get("pending_alerts", [])
-        if len(pending_alerts) >= 2:
+        # Si ya existe una alerta pendiente de acumulación, no generar otra circular
+        if any(a.alert_type == "unacknowledged_alert" for a in pending_alerts):
+            return None
+
+        # Contabilizar únicamente alertas previas que requieren revisión clínica/operativa
+        reviewable_pending = [
+            a
+            for a in pending_alerts
+            if ALERT_TYPES.get(a.alert_type, {}).get("requires_review", True)
+            and a.alert_type != "unacknowledged_alert"
+        ]
+        if len(reviewable_pending) >= 2:
             reason = (
-                f"Acumulación de alertas: el paciente presenta {len(pending_alerts)} alertas "
-                f"pendientes de reconocimiento."
+                f"Acumulación de alertas: el paciente presenta {len(reviewable_pending)} alertas "
+                f"clínicas u operativas pendientes de reconocimiento."
             )
             trigger_data = json.dumps(
                 {
-                    "pending_count": len(pending_alerts),
-                    "alert_ids": [a.id for a in pending_alerts if a.id is not None],
+                    "pending_count": len(reviewable_pending),
+                    "alert_ids": [a.id for a in reviewable_pending if a.id is not None],
                 },
                 ensure_ascii=False,
             )
+            ref_time = context.get("reference_time") or datetime.now().isoformat()
 
             return Alert(
                 id=None,
                 patient_id=patient.id,
                 evaluation_id=context.get("evaluation_id"),
-                created_at=datetime.now().isoformat(),
+                created_at=ref_time,
                 alert_type=self.alert_type,
                 reason=reason,
                 status=ALERT_STATUS_PENDING,
@@ -458,6 +485,9 @@ class AlertEngine:
                 "description": rule.description,
                 "alert_type": rule.alert_type,
                 "requires_review": rule.requires_review,
+                "category": ALERT_TYPES.get(rule.alert_type, {}).get(
+                    "category", "riesgo_clinico" if rule.requires_review else "informativa"
+                ),
                 "enabled": rule.enabled,
             }
             for rule in self.rules
@@ -470,6 +500,7 @@ class AlertEngine:
         evaluation_id: Optional[int] = None,
         news2_result: Optional[NEWS2Result] = None,
         changes: Optional[List[Dict[str, Any]]] = None,
+        reference_time: Optional[str] = None,
     ) -> List[Alert]:
         """Evalúa todas las reglas activas para un paciente determinado.
 
@@ -481,6 +512,7 @@ class AlertEngine:
             evaluation_id: Identificador de la evaluación asociada (opcional).
             news2_result: Resultado precalculado de NEWS2 (opcional).
             changes: Lista precalculada de cambios respecto a medición anterior (opcional).
+            reference_time: Marca temporal ISO opcional para coherencia con simulaciones.
 
         Returns:
             List[Alert]: Lista de alertas creadas y persistidas en la base de datos.
@@ -492,10 +524,24 @@ class AlertEngine:
             if patient is None:
                 return []
 
+            ref_time = (
+                reference_time
+                or (new_measurement.recorded_at if new_measurement and new_measurement.recorded_at else None)
+                or datetime.now().isoformat()
+            )
+
             pending_alerts = get_alerts_for_patient(
                 conn, patient_id, status_filter=ALERT_STATUS_PENDING
             )
-            wait_time = compute_wait_time(patient.arrival_at) if patient.arrival_at else 0.0
+            wait_time = (
+                compute_wait_time(
+                    patient.arrival_at,
+                    reference_time=ref_time,
+                    administrative_status=patient.administrative_status,
+                )
+                if patient.arrival_at
+                else 0.0
+            )
 
             # Determinar medición para evaluación NEWS2 si no fue provista
             if news2_result is None:
@@ -526,6 +572,7 @@ class AlertEngine:
                 "changes": changes,
                 "pending_alerts": pending_alerts,
                 "wait_time_minutes": wait_time,
+                "reference_time": ref_time,
             }
 
             for rule in self.rules:
@@ -534,9 +581,13 @@ class AlertEngine:
 
                 alert_candidate = rule.evaluate(context)
                 if alert_candidate is not None:
-                    # Evitar duplicados recientes
+                    # Evitar duplicados recientes usando el tiempo de referencia del evento
                     is_duplicate = check_duplicate_alert(
-                        conn, patient_id, alert_candidate.alert_type, since_minutes=5
+                        conn,
+                        patient_id,
+                        alert_candidate.alert_type,
+                        since_minutes=5,
+                        reference_time=ref_time,
                     )
                     if not is_duplicate:
                         alert_id = insert_alert(conn, alert_candidate)
@@ -559,7 +610,8 @@ class AlertEngine:
             measurement: Medición recién registrada.
 
         Returns:
-            Dict[str, Any]: Diccionario con 'evaluation', 'alerts', 'changes'.
+            Dict[str, Any]: Diccionario con 'evaluation', 'alerts', 'clinical_alerts',
+                            'informative_notifications', 'changes'.
         """
         if measurement is None or measurement.id is None:
             raise ValueError(
@@ -570,7 +622,12 @@ class AlertEngine:
         news2_result = calculate_news2(measurement)
 
         # 2. Persistir evaluación
-        evaluation = create_evaluation_from_news2(patient_id, measurement.id, news2_result)
+        evaluation = create_evaluation_from_news2(
+            patient_id,
+            measurement.id,
+            news2_result,
+            evaluated_at=measurement.recorded_at,
+        )
         conn = get_connection(self.db_path)
         changes: List[Dict[str, Any]] = []
         try:
@@ -598,12 +655,22 @@ class AlertEngine:
             evaluation_id=evaluation.id,
             news2_result=news2_result,
             changes=changes,
+            reference_time=measurement.recorded_at,
         )
+
+        clinical_alerts = [
+            a for a in alerts if ALERT_TYPES.get(a.alert_type, {}).get("requires_review", True)
+        ]
+        informative_notifications = [
+            a for a in alerts if not ALERT_TYPES.get(a.alert_type, {}).get("requires_review", True)
+        ]
 
         # 5. Devolver resultados
         return {
             "evaluation": evaluation,
             "alerts": alerts,
+            "clinical_alerts": clinical_alerts,
+            "informative_notifications": informative_notifications,
             "changes": changes,
         }
 
@@ -640,6 +707,16 @@ class AlertEngine:
             return get_all_pending_alerts(conn)
         finally:
             conn.close()
+
+    def get_pending_clinical_alerts(self, patient_id: Optional[int] = None) -> List[Alert]:
+        """Obtiene únicamente las alertas pendientes que requieren revisión clínica u operativa.
+
+        Excluye notificaciones informativas automáticas como 'new_measurement'.
+        """
+        all_pending = self.get_pending_alerts(patient_id=patient_id)
+        return [
+            a for a in all_pending if ALERT_TYPES.get(a.alert_type, {}).get("requires_review", True)
+        ]
 
     def get_alert_history(self, patient_id: int) -> List[Alert]:
         """Obtiene el historial completo de alertas de un paciente.
