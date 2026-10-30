@@ -1537,13 +1537,16 @@ def render_evaluation_history(evaluations: List[Evaluation]) -> None:
 
 
 def render_alert_panel(
-    alerts: List[Alert], on_acknowledge: Optional[Callable[[int], bool]] = None
+    alerts: List[Alert],
+    on_acknowledge: Optional[Callable[[int], bool]] = None,
+    key_prefix: str = 'default',
 ) -> None:
     """Muestra el panel de alertas diferenciando riesgo elevado, cambios fisiológicos y avisos informativos.
 
     Args:
         alerts: Lista de objetos Alert.
         on_acknowledge: Función de retrollamada para reconocer alertas (recibe alert_id).
+        key_prefix: Prefijo único para las claves de botones de Streamlit cuando el panel se renderiza más de una vez en la misma vista.
     """
     if not alerts:
         st.success('No existen alertas ni notificaciones registradas para este contexto.')
@@ -1569,7 +1572,7 @@ def render_alert_panel(
         if not pending_review:
             st.success('No hay alertas de riesgo clínico ni cambios fisiológicos pendientes de revisión.')
         else:
-            for alert in pending_review:
+            for idx, alert in enumerate(pending_review):
                 type_info = ALERT_TYPES.get(alert.alert_type, {})
                 type_name = type_info.get('label', alert.alert_type)
                 category = type_info.get('category', 'riesgo_clinico')
@@ -1604,7 +1607,7 @@ def render_alert_panel(
                             st.json(trig)
 
                     if on_acknowledge is not None and alert.id is not None:
-                        btn_key = f'ack_alert_btn_{alert.id}'
+                        btn_key = f'ack_alert_btn_{key_prefix}_{alert.id}_{idx}'
                         if st.button(
                             f'✓ Reconocer Alerta #{alert.id}',
                             key=btn_key,

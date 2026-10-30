@@ -658,7 +658,11 @@ def page_care() -> None:
     ])
 
     with tab_p_alerts:
-        dashboard.render_alert_panel(patient_alerts, on_acknowledge=acknowledge_callback)
+        dashboard.render_alert_panel(
+            patient_alerts,
+            on_acknowledge=acknowledge_callback,
+            key_prefix=f"patient_{selected_patient_id}",
+        )
 
     with tab_p_history:
         if measurements:
@@ -682,7 +686,11 @@ def page_care() -> None:
             st.warning(
                 f"Hay **{len(all_pending_clinical)}** alerta(s) clínica(s) u operativa(s) pendientes de reconocimiento en el servicio."
             )
-            dashboard.render_alert_panel(all_pending_clinical, on_acknowledge=acknowledge_callback)
+            dashboard.render_alert_panel(
+                all_pending_clinical,
+                on_acknowledge=acknowledge_callback,
+                key_prefix="global_console",
+            )
         else:
             st.success("No existen alertas clínicas ni operativas pendientes de revisión en el servicio.")
 
